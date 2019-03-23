@@ -223,43 +223,52 @@ int main(void) {
 				}
 			}
 		}
-		printf("%d\n", len);
+		
+		//printf("%d\n", len);
 		printf("command: %s, argument1: %s, argument2: %s\n", cmd, arg1, arg2);
-		printf("%s %s result of strcmp: %d",cmd, "h", strcmp(cmd, "h\n"));
+		printf("%s %s strcmp: %d", cmd, "q\n", strcmp(cmd, "q\n"));		
+		
 		if (strcmp(cmd, "h\n") == 0 || strcmp(cmd, "help\n") == 0) {
 			// h[elp]
 			display_help();
 		}
 		else if (strcmp(cmd, "d\n") == 0 || strcmp(cmd, "dir\n") == 0) {
+			// d[ir]
 			display_dir();
 		}
 		else if (strcmp(cmd, "q\n") == 0 || strcmp(cmd, "quit\n") == 0) {
-			// exit
+			// q[uit]
+			printf("quit shell\n");
 			break;
 		}
 		else if (strcmp(cmd, "hi\n") == 0 || strcmp(cmd, "history\n") == 0) {
+			// hi[story]
 			createNode(L, cmd);
 			printNodes(L);
 			continue;
 		}
 		else if (strcmp(cmd, "du\n") == 0 || strcmp(cmd, "dump\n") == 0) {
+			// du[mp]
 			hexDump(&addr);
 		}
 		else if (strcmp(cmd, "e\n") == 0 || strcmp(cmd, "edit\n") == 0) {
+			// e[dit] address, data
 			edit((int)(arg1 - '0'), (int)((arg2[0] - '0') * 16 + (arg2[1] - '0')) , &addr);
 		}
 		else if (strcmp(cmd, "opcodelist\n") == 0) {
+			// opcodelist
 			opcodelist(hash_table);
 		}
-		else {
-			printf("wrong command\n");
-			printf("if you want to know the commands h[elp]\n");
-			continue;
+			else {
+				// wrong command
+				printf("wrong command\n");
+				printf("if you want to know the commands h[elp]\n");
+				continue;
+			}
+			createNode(L, cmd);
 		}
-		createNode(L, cmd);
 	}
-}
-return 0;
+	return 0;
 }
 
 void display_help(void) {
@@ -311,12 +320,13 @@ void createNode(LinkedList *L, char cmd[]) {
 	}
 }
 
+// pirnt linked list history
 void printNodes(LinkedList *L) {
 	Node *p = L->head;
 	int cnt = 1;
 	while (p != NULL) {
 		printf("%d\t", cnt);
-		printf("%s\n", p->data);
+		printf("%s", p->data);
 		p = p->next;
 		cnt++;
 	}
