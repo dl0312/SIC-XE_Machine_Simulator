@@ -86,3 +86,9 @@ gcc -o main main.c
 vi main.c
 ls
 gcc main.c
+ls
+vi main.c
+gcc main.c
+vi main.c
+gcc main.c
+vi main.c

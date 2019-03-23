@@ -1,0 +1,11 @@
+.viminfo
+
+.cache
+
+main
+a.out
+
+.main.c.swo
+.bashrc
+.bash_logout
+.bash_history
