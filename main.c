@@ -51,11 +51,10 @@ int hexDumpWithStartEnd(int start, int end, void * addr);
 
 
 void insert(struct Inst inst_record, struct Record *hash_table[]);
-int search_element(int key, struct Record *hash_table[]);
-void remove_record(int key, struct Record *hash_table[]);
-void show(struct Record *hash_table[]);
+int search_element(unsigned char * key, struct Record *hash_table[]);
+void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]);
 void opcodelist(struct Record *hash_table[]);
-int hash_function(int key);
+int hash_function(unsigned char * key);
 void edit(int traget_address, int data, void *addr);
 void fill(int start, int end, int data, void *addr);
 
@@ -138,10 +137,10 @@ int main(void) {
 	while (1) {
 
 		// reset cmd, args
-		char *cmd;
-		char *arg1 = NULL;
-		char *arg2 = NULL;
-		char *arg3 = NULL;
+		unsigned char *cmd;
+		unsigned char *arg1 = NULL;
+		unsigned char *arg2 = NULL;
+		unsigned char *arg3 = NULL;
 
 		// command input
 		printf("sicsim> ");
@@ -149,6 +148,7 @@ int main(void) {
 		strcpy(tmp_input, input);	
 		tmp_input[strcspn(tmp_input, "\n")] = '\0';
 		int flag = 0;
+		int wrong_input_flag = 0;
 		int len = strlen(input);
 		cmd = input;
 		for (int i = 0; i < len; i++) {
@@ -164,7 +164,8 @@ int main(void) {
 					break;
 				}
 				else {
-					printf("wrong");
+					wrong_input_flag = 1;
+					break;
 				}
 			}
 			else if (flag == 1){
@@ -199,8 +200,10 @@ int main(void) {
 					flag ++;
 				}
 				else {
-					printf("wrong");
+					wrong_input_flag = 1;
+					break;
 				}
+
 			}
 			else if (flag == 4) {
 				// empty space after comma
@@ -234,7 +237,8 @@ int main(void) {
 					flag++;
 				}
 				else {
-					printf("wrong");
+					wrong_input_flag = 1;
+					break;
 				}
 			}
 			else if (flag == 7) {
@@ -261,10 +265,15 @@ int main(void) {
 		}
 		
 		//printf("%d\n", len);
-		printf("cmd: %s, arg1: %s, arg2: %s, arg3: %s\n", cmd, arg1, arg2, arg3);
+		//printf("cmd: %s, arg1: %s, arg2: %s, arg3: %s\n", cmd, arg1, arg2, arg3);
 		//printf("%s %s strcmp: %d", cmd, "q\n", strcmp(cmd, "q\n"));		
-		
-		if (strcmp(cmd, "h") == 0 || strcmp(cmd, "help") == 0) {
+		if(wrong_input_flag == 1){
+			// wrong command
+			printf("wrong command\n");
+			printf("if you want to know the commands h[elp]\n");
+			continue;
+		}
+		else if (strcmp(cmd, "h") == 0 || strcmp(cmd, "help") == 0) {
 			// h[elp]
 			display_help();
 		}
@@ -286,15 +295,28 @@ int main(void) {
 		else if (strcmp(cmd, "du") == 0 || strcmp(cmd, "dump") == 0) {
 			// du[mp]
 			if(arg1==NULL){
-				last_addr = hexDump(last_addr, &addr);
+				if(last_addr<=0xFFF60){
+					// just du[mp] 
+					last_addr = hexDump(last_addr, &addr);
+				} else {
+					// segmentation fault
+					printf("segmentation fault\n");
+					last_addr = 0;
+				}
 			} else {
 				int hex_arg1 = (int)strtol(arg1, NULL, 16);
 				if(arg2==NULL){
+					// du[mp] start
 					last_addr = hexDumpWithStart(hex_arg1,&addr);
 				}else{
 					int hex_arg2 = (int)strtol(arg2, NULL, 16);
 					if((hex_arg1 <= hex_arg2) && arg3==NULL){
-						last_addr = hexDumpWithStartEnd(hex_arg1, hex_arg2, &addr);
+						// du[mp] start, end
+						if(hex_arg2 <= 0xFFFFF){
+							last_addr = hexDumpWithStartEnd(hex_arg1, hex_arg2, &addr);
+						} else {
+							printf("segmentation fault\n");
+						}
 					}else{
 						continue;
 					}
@@ -313,8 +335,12 @@ int main(void) {
 				int hex_arg3 = (int)strtol(arg3, NULL, 16);
 				fill(hex_arg1, hex_arg2, hex_arg3, &addr);
 			}
-		} else if(strcmp(cmd, "reset") == 0){
+		} else if (strcmp(cmd, "reset") == 0){
 			memset(addr, 0, sizeof(addr));
+		} else if (strcmp(cmd, "opcode") == 0){
+			if(arg1!=NULL){
+				get_opcode_by_key(arg1, hash_table);
+			}
 		} else if (strcmp(cmd, "opcodelist") == 0) {
 			// opcodelist
 			opcodelist(hash_table);
@@ -355,8 +381,10 @@ void display_dir(void) {
 		{
 			stat(dir->d_name, &buf);
 			if (S_ISDIR(buf.st_mode)) {
+				// directory
 				printf("%s/\n", dir->d_name);
 			} else if (buf.st_mode & S_IXUSR) {
+				// executable file
 				printf("%s*\n", dir->d_name);
 			}
 			else {
@@ -396,6 +424,13 @@ int hexDump(int last_addr, void *addr)
 	int i;
 	unsigned char buff[17];
 	unsigned char *pc = (unsigned char*)addr;
+	for(i= last_addr - last_addr%16; i < last_addr; i++){
+		if((i%16) == 0){
+			printf("  %05X ", i);
+		}
+		buff[i%16] = '.';
+		printf("   ");
+	}	
 	// Process every byte in the data.
 	for (i = last_addr; i < 160 + last_addr; i++) {
 		// Multiple of 16 means new line (with line offset).
@@ -423,11 +458,11 @@ int hexDump(int last_addr, void *addr)
 
 		buff[(i % 16) + 1] = '\0';
 	}
-
-	// Pad out last line if not exactly 16 characters.
-	while ((i % 16) != 0) {
-		printf("   ");
-		i++;
+	if(i%16 != 0){	
+		for(int j = last_addr%16; j < 16; j++){
+			buff[j%16] = '.';
+			printf("   ");
+		}	
 	}
 
 	// And print the final ASCII bit.
@@ -450,8 +485,10 @@ int hexDumpWithStart(int start, void *addr)
 	}
 	// Process every byte in the data.
 	for (i = start; i < 160 + start; i++) {
+		if(i>0xFFFFF){
+			break;
+		}
 		// Multiple of 16 means new line (with line offset).
-
 		if ((i % 16) == 0) {
 			// Just don't print ASCII for the zeroth line.
 			if (i != start)
@@ -474,11 +511,12 @@ int hexDumpWithStart(int start, void *addr)
 
 		buff[(i % 16) + 1] = '\0';
 	}
-	for(int j = start%16; i < 16; i++){
-		buff[i%16] = '.';
-		printf("   ");
-	}	
-
+	if(i%16!=0){
+		for(int j = start%16; j < 16; j++){
+			buff[j%16] = '.';
+			printf("   ");
+		}	
+	}
 	// And print the final ASCII bit.
 	printf(" ; %s\n", buff);
 	return i;
@@ -536,7 +574,6 @@ int hexDumpWithStartEnd(int start, int end, void *addr)
 void edit(int target_address, int data, void *addr) {
 	//unsigned char *pc = (unsigned char*)addr;
 	((unsigned char*)addr)[target_address] = data;
-	printf("%d %d", target_address, data);
 }
 
 void fill(int start, int end, int data, void *addr){
@@ -548,9 +585,9 @@ void fill(int start, int end, int data, void *addr){
 
 void insert(struct Inst inst_record, struct Record *hash_table[])
 {
-	int key, h;
+	unsigned char *key, h;
 	struct Record *temp;
-	key = inst_record.opcode;
+	key = inst_record.mnemonic;
 	if (search_element(key, hash_table) != -1)
 	{
 		return;
@@ -562,7 +599,7 @@ void insert(struct Inst inst_record, struct Record *hash_table[])
 	hash_table[h] = temp;
 }
 
-int search_element(int key, struct Record *hash_table[])
+int search_element(unsigned char * key, struct Record *hash_table[])
 {
 	int h;
 	struct Record *ptr;
@@ -570,7 +607,7 @@ int search_element(int key, struct Record *hash_table[])
 	ptr = hash_table[h];
 	while (ptr != NULL)
 	{
-		if (ptr->data.opcode == key)
+		if (strcmp(ptr->data.mnemonic, key) == 0)
 		{
 			return h;
 		}
@@ -579,36 +616,17 @@ int search_element(int key, struct Record *hash_table[])
 	return -1;
 }
 
-void remove_record(int key, struct Record *hash_table[])
-{
+void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]){
 	int h;
-	struct Record *temp, *ptr;
+	struct Record *ptr;
 	h = hash_function(key);
-	if (hash_table[h] == NULL)
-	{
-		printf("Key %d Not Found\n", key);
-		return;
-	}
-	if (hash_table[h]->data.opcode == key)
-	{
-		temp = hash_table[h];
-		hash_table[h] = hash_table[h]->link;
-		free(temp);
-		return;
-	}
 	ptr = hash_table[h];
-	while (ptr->link != NULL)
-	{
-		if (ptr->link->data.opcode == key)
-		{
-			temp = ptr->link;
-			ptr->link = temp->link;
-			free(temp);
-			return;
+	while (ptr != NULL){
+		if(strcmp(ptr->data.mnemonic, key) == 0){
+			printf("opcode is %02X\n", ptr->data.opcode);
 		}
 		ptr = ptr->link;
 	}
-	printf("Key %d Not Found\n", key);
 }
 
 void opcodelist(struct Record *hash_table[]) {
@@ -630,14 +648,10 @@ void opcodelist(struct Record *hash_table[]) {
 	}
 }
 
-// Based on an original suggestion on Robert Jenkin's part in 1997
-// https://gist.github.com/badboy/6267743
-int hash_function(int key) {
-	key = ~key + (key << 15); // key = (key << 15) - key - 1;
-	key = key ^ (key >> 12);
-	key = key + (key << 2);
-	key = key ^ (key >> 4);
-	key = key * 2057; // key = (key + (key << 3)) + (key << 11);
-	key = key ^ (key >> 16);	
-	return (key % HASH_TABLE_MAX);
+int hash_function(unsigned char * key) {
+	unsigned long hash = 5381;
+	int c;
+    	while (c = *key++)
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	return hash%HASH_TABLE_MAX;
 }
