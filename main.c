@@ -45,9 +45,9 @@ void createNode(LinkedList * L, char cmd[]);
 void printNodes(LinkedList * L);
 
 // hex dump
-void hexDump(void * addr);
-void hexDumpWithStart(int start, void * addr);
-void hexDumpWithStartEnd(int start, int end, void * addr);
+int hexDump(int last_addr, void * addr);
+int hexDumpWithStart(int start, void * addr);
+int hexDumpWithStartEnd(int start, int end, void * addr);
 
 
 void insert(struct Inst inst_record, struct Record *hash_table[]);
@@ -104,6 +104,7 @@ int main(void) {
 
 	// init dump addresses
 	unsigned char addr[16*65536] = { 0 };
+	int last_addr = 0;
 	char *ptr;
 
 	// dynamic allocate LinkedList of history
@@ -284,16 +285,16 @@ int main(void) {
 		}
 		else if (strcmp(cmd, "du") == 0 || strcmp(cmd, "dump") == 0) {
 			// du[mp]
-			int hex_arg1 = (int)strtol(arg1, NULL, 16);
-			int hex_arg2 = (int)strtol(arg2, NULL, 16);
 			if(arg1==NULL){
-				hexDump(&addr);
+				last_addr = hexDump(last_addr, &addr);
 			} else {
+				int hex_arg1 = (int)strtol(arg1, NULL, 16);
 				if(arg2==NULL){
-					hexDumpWithStart(hex_arg1,&addr);
+					last_addr = hexDumpWithStart(hex_arg1,&addr);
 				}else{
+					int hex_arg2 = (int)strtol(arg2, NULL, 16);
 					if((hex_arg1 <= hex_arg2) && arg3==NULL){
-						hexDumpWithStartEnd(hex_arg1, hex_arg2, &addr);
+						last_addr = hexDumpWithStartEnd(hex_arg1, hex_arg2, &addr);
 					}else{
 						continue;
 					}
@@ -306,12 +307,14 @@ int main(void) {
 			}
 		} else if(strcmp(cmd, "f") == 0 || strcmp(cmd, "fill") == 0){
 			// f[ill] start, end, data
-			int hex_arg1 = (int)strtol(arg1, NULL, 16);
-			int hex_arg2 = (int)strtol(arg2, NULL, 16);
-			int hex_arg3 = (int)strtol(arg3, NULL, 16);
 			if((arg1!=NULL && arg2!=NULL) && arg3!=NULL){
+				int hex_arg1 = (int)strtol(arg1, NULL, 16);
+				int hex_arg2 = (int)strtol(arg2, NULL, 16);
+				int hex_arg3 = (int)strtol(arg3, NULL, 16);
 				fill(hex_arg1, hex_arg2, hex_arg3, &addr);
 			}
+		} else if(strcmp(cmd, "reset") == 0){
+			memset(addr, 0, sizeof(addr));
 		} else if (strcmp(cmd, "opcodelist") == 0) {
 			// opcodelist
 			opcodelist(hash_table);
@@ -388,19 +391,19 @@ void printNodes(LinkedList *L) {
 	}
 }
 
-void hexDump(void *addr)
+int hexDump(int last_addr, void *addr)
 {
 	int i;
 	unsigned char buff[17];
 	unsigned char *pc = (unsigned char*)addr;
 	// Process every byte in the data.
-	for (i = 0; i < 160; i++) {
+	for (i = last_addr; i < 160 + last_addr; i++) {
 		// Multiple of 16 means new line (with line offset).
 
 		if ((i % 16) == 0) {
 			// Just don't print ASCII for the zeroth line.
-			if (i != 0)
-				printf("  %s\n", buff);
+			if (i != last_addr)
+				printf(" ; %s\n", buff);
 
 			// Output the offset.
 			printf("  %05X ", i);
@@ -428,10 +431,11 @@ void hexDump(void *addr)
 	}
 
 	// And print the final ASCII bit.
-	printf("  %s\n", buff);
+	printf(" ; %s\n", buff);
+	return i;
 }
 
-void hexDumpWithStart(int start, void *addr)
+int hexDumpWithStart(int start, void *addr)
 {
 	int i;
 	unsigned char buff[17] = {"."};
@@ -450,8 +454,8 @@ void hexDumpWithStart(int start, void *addr)
 
 		if ((i % 16) == 0) {
 			// Just don't print ASCII for the zeroth line.
-			if (i != 0)
-				printf("  %s\n", buff);
+			if (i != start)
+				printf(" ; %s\n", buff);
 
 			// Output the offset.
 			printf("  %05X ", i);
@@ -470,16 +474,17 @@ void hexDumpWithStart(int start, void *addr)
 
 		buff[(i % 16) + 1] = '\0';
 	}
-	for(i = start%16; i < 16; i++){
+	for(int j = start%16; i < 16; i++){
 		buff[i%16] = '.';
 		printf("   ");
 	}	
 
 	// And print the final ASCII bit.
-	printf("  %s\n", buff);
+	printf(" ; %s\n", buff);
+	return i;
 }
 
-void hexDumpWithStartEnd(int start, int end, void *addr)
+int hexDumpWithStartEnd(int start, int end, void *addr)
 {
 	int i;
 	unsigned char buff[17] = {"."};
@@ -499,7 +504,7 @@ void hexDumpWithStartEnd(int start, int end, void *addr)
 		if ((i % 16) == 0) {
 			// Just don't print ASCII for the zeroth line.
 			if (i != 0)
-				printf("  %s\n", buff);
+				printf(" ; %s\n", buff);
 
 			// Output the offset.
 			printf("  %05X ", i);
@@ -518,13 +523,14 @@ void hexDumpWithStartEnd(int start, int end, void *addr)
 
 		buff[(i % 16) + 1] = '\0';
 	}
-	for(i = end%16 +1; i < 16; i++){
-		buff[i%16] = '.';
+	for(int j = end%16 +1; j < 16; j++){
+		buff[j%16] = '.';
 		printf("   ");
 	}	
 
 	// And print the final ASCII bit.
-	printf("  %s\n", buff);
+	printf(" ; %s\n", buff);
+	return i;
 }
 
 void edit(int target_address, int data, void *addr) {
@@ -607,7 +613,7 @@ void remove_record(int key, struct Record *hash_table[])
 
 void opcodelist(struct Record *hash_table[]) {
 	for (int count = 0; count < HASH_TABLE_MAX; count++) {
-		printf("%d : ", count);
+		printf("%02d : ", count);
 		struct Record *ptr = hash_table[count];
 		int start_flag = 1;
 		while (ptr != NULL && ptr->link != NULL) {
