@@ -7,85 +7,9 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include "20131582.h"
 #define	MAX	100
 #define HASH_TABLE_MAX 20
-
-typedef struct LinkedList {
-	struct Node *cur;
-	struct Node *head;
-	struct Node *tail;
-} LinkedList;
-
-typedef struct Node {
-	char *data;
-	struct Node *next;
-} Node;
-
-typedef struct Inst {
-	int opcode;
-	char mnemonic[10];
-	char format[10];
-} Inst;
-
-typedef struct Record {
-	struct Inst data;
-	struct Record *link;
-} Record;
-
-
-int main(void);
-
-// h[elp] command
-void display_help(void);
-void display_dir(void);
-
-// history linked list
-void createNode(LinkedList * L, char cmd[]);
-void printNodes(LinkedList * L);
-
-// hex dump
-int hexDump(int last_addr, void * addr);
-int hexDumpWithStart(int start, void * addr);
-int hexDumpWithStartEnd(int start, int end, void * addr);
-
-
-void insert(struct Inst inst_record, struct Record *hash_table[]);
-int search_element(unsigned char * key, struct Record *hash_table[]);
-void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]);
-void opcodelist(struct Record *hash_table[]);
-int hash_function(unsigned char * key);
-void edit(int traget_address, int data, void *addr);
-void fill(int start, int end, int data, void *addr);
-
-char* concat(int count, ...)
-{
-    va_list ap;
-    int i;
-
-    // Find required length to store merged string
-    int len = 1; // room for NULL
-    va_start(ap, count);
-    for(i=0 ; i<count ; i++)
-        len += strlen(va_arg(ap, char*));
-    va_end(ap);
-
-    // Allocate memory to concat strings
-    char *merged = calloc(sizeof(char),len);
-    int null_pos = 0;
-
-    // Actually concatenate strings
-    va_start(ap, count);
-    for(i=0 ; i<count ; i++)
-    {
-        char *s = va_arg(ap, char*);
-        strcpy(merged+null_pos, s);
-        null_pos += strlen(s);
-    }
-    va_end(ap);
-
-    return merged;
-}
 
 int main(void) {
 	// create hash table
@@ -99,6 +23,8 @@ int main(void) {
 	}
 
 	char input[MAX] = "";
+
+	// save input for history
 	char tmp_input[MAX] = "";
 
 	// init dump addresses
@@ -114,9 +40,6 @@ int main(void) {
 
 	// file input stream
 	FILE *ptr_file;
-	int opcode;
-	char mnemonic[10];
-	char format[10];
 
 	// open file with readonly
 	ptr_file = fopen("opcode.txt", "r");
@@ -145,9 +68,15 @@ int main(void) {
 		// command input
 		printf("sicsim> ");
 		fgets(input, sizeof(input), stdin);
-		strcpy(tmp_input, input);	
+		strcpy(tmp_input, input);
+
+		// trim tmp input	
 		tmp_input[strcspn(tmp_input, "\n")] = '\0';
+		
+		// flag for input state
 		int flag = 0;
+
+		// check wrong command
 		int wrong_input_flag = 0;
 		int len = strlen(input);
 		cmd = input;
@@ -264,9 +193,6 @@ int main(void) {
 			}
 		}
 		
-		//printf("%d\n", len);
-		//printf("cmd: %s, arg1: %s, arg2: %s, arg3: %s\n", cmd, arg1, arg2, arg3);
-		//printf("%s %s strcmp: %d", cmd, "q\n", strcmp(cmd, "q\n"));		
 		if(wrong_input_flag == 1){
 			// wrong command
 			printf("wrong command\n");
@@ -293,10 +219,9 @@ int main(void) {
 			continue;
 		}
 		else if (strcmp(cmd, "du") == 0 || strcmp(cmd, "dump") == 0) {
-			// du[mp]
 			if(arg1==NULL){
 				if(last_addr<=0xFFF60){
-					// just du[mp] 
+					// du[mp] 
 					last_addr = hexDump(last_addr, &addr);
 				} else {
 					// segmentation fault
@@ -318,6 +243,7 @@ int main(void) {
 							printf("segmentation fault\n");
 						}
 					}else{
+						printf("end address is lower than start address\n");
 						continue;
 					}
 				}
@@ -336,9 +262,11 @@ int main(void) {
 				fill(hex_arg1, hex_arg2, hex_arg3, &addr);
 			}
 		} else if (strcmp(cmd, "reset") == 0){
+			// reset
 			memset(addr, 0, sizeof(addr));
 		} else if (strcmp(cmd, "opcode") == 0){
 			if(arg1!=NULL){
+				// opcode mnemonic
 				get_opcode_by_key(arg1, hash_table);
 			}
 		} else if (strcmp(cmd, "opcodelist") == 0) {
@@ -350,6 +278,7 @@ int main(void) {
 			printf("if you want to know the commands h[elp]\n");
 			continue;
 		}
+		// create node on history linked list
 		createNode(L, tmp_input);
 	}
 
@@ -357,6 +286,7 @@ int main(void) {
 	return 0;
 }
 
+/* display commands */
 void display_help(void) {
 	printf("h[elp]\n");
 	printf("d[ir]\n");
@@ -370,6 +300,7 @@ void display_help(void) {
 	printf("opcodelist\n");
 }
 
+/* display directory files */
 void display_dir(void) {
 	DIR *d;
 	struct stat buf;
@@ -395,6 +326,7 @@ void display_dir(void) {
 	}
 }
 
+/* create node on history linked list */
 void createNode(LinkedList *L, char cmd[]) {
 	Node *newNode = (Node *)malloc(sizeof(Node));
 	newNode->data = strdup(cmd);
@@ -407,7 +339,7 @@ void createNode(LinkedList *L, char cmd[]) {
 	}
 }
 
-// print linked list history
+/* print each nodes on history linked list */
 void printNodes(LinkedList *L) {
 	Node *p = L->head;
 	int cnt = 1;
@@ -419,6 +351,7 @@ void printNodes(LinkedList *L) {
 	}
 }
 
+/* dump 10 lines */
 int hexDump(int last_addr, void *addr)
 {
 	int i;
@@ -431,25 +364,23 @@ int hexDump(int last_addr, void *addr)
 		buff[i%16] = '.';
 		printf("   ");
 	}	
-	// Process every byte in the data.
+	// process every byte in the data
 	for (i = last_addr; i < 160 + last_addr; i++) {
-		// Multiple of 16 means new line (with line offset).
-
+		// new line 
 		if ((i % 16) == 0) {
-			// Just don't print ASCII for the zeroth line.
+			// don't print ASCII code for the zeroth line
 			if (i != last_addr)
 				printf(" ; %s\n", buff);
 
-			// Output the offset.
+			// output the offset
 			printf("  %05X ", i);
 		}
 
-		// Now the hex code for the specific character.
+		// the hex code for the specific character
 		printf(" %02X", pc[i]);
-		//printf(" %02x", pc + sizeof(char));
-		//printf(" %x", pc + sizeof(char));
-		// And store a printable ASCII character for later.
-		if ((pc[i] < 0x20) || (pc[i] > 0x7e)) {
+		
+		// store a printable ASCII character(0x20 ~ 0x7E)
+		if ((pc[i] < 0x20) || (pc[i] > 0x7E)) {
 			buff[i % 16] = '.';
 		}
 		else {
@@ -465,11 +396,12 @@ int hexDump(int last_addr, void *addr)
 		}	
 	}
 
-	// And print the final ASCII bit.
+	// print the final ASCII bit
 	printf(" ; %s\n", buff);
 	return i;
 }
 
+/* dump 10 lines from start address */
 int hexDumpWithStart(int start, void *addr)
 {
 	int i;
@@ -483,25 +415,26 @@ int hexDumpWithStart(int start, void *addr)
 		printf("   ");
 	
 	}
-	// Process every byte in the data.
+	// process every byte in the data
 	for (i = start; i < 160 + start; i++) {
+		// address can't exceed 0xFFFFF
 		if(i>0xFFFFF){
 			break;
 		}
-		// Multiple of 16 means new line (with line offset).
+		// new line
 		if ((i % 16) == 0) {
-			// Just don't print ASCII for the zeroth line.
+			// don't print ASCII code for the zeroth line
 			if (i != start)
 				printf(" ; %s\n", buff);
 
-			// Output the offset.
+			// output the offset
 			printf("  %05X ", i);
 		}
 
-		// Now the hex code for the specific character.
+		// the hex code for the specific character
 		printf(" %02X", pc[i]);
 
-		// And store a printable ASCII character for later.
+		// store a printable ASCII character(0x20 ~ 0x7E)
 		if ((pc[i] < 0x20) || (pc[i] > 0x7e)) {
 			buff[i % 16] = '.';
 		}
@@ -517,11 +450,12 @@ int hexDumpWithStart(int start, void *addr)
 			printf("   ");
 		}	
 	}
-	// And print the final ASCII bit.
+	// print the final ASCII bit
 	printf(" ; %s\n", buff);
 	return i;
 }
 
+/* dump from start address to end address */
 int hexDumpWithStartEnd(int start, int end, void *addr)
 {
 	int i;
@@ -535,23 +469,23 @@ int hexDumpWithStartEnd(int start, int end, void *addr)
 		printf("   ");
 	
 	}
-	// Process every byte in the data.
+	// process every byte in the data
 	for (i = start; i <= end; i++) {
-		// Multiple of 16 means new line (with line offset).
+		// new line
 
 		if ((i % 16) == 0) {
-			// Just don't print ASCII for the zeroth line.
+			// don't print ASCII code for the zeroth line.
 			if (i != 0)
 				printf(" ; %s\n", buff);
 
-			// Output the offset.
+			// output the offset
 			printf("  %05X ", i);
 		}
 
-		// Now the hex code for the specific character.
+		// the hex code for the specific character
 		printf(" %02X", pc[i]);
 
-		// And store a printable ASCII character for later.
+		// store a printable ASCII character(0x20 ~ 0x7E)
 		if ((pc[i] < 0x20) || (pc[i] > 0x7e)) {
 			buff[i % 16] = '.';
 		}
@@ -566,16 +500,18 @@ int hexDumpWithStartEnd(int start, int end, void *addr)
 		printf("   ");
 	}	
 
-	// And print the final ASCII bit.
+	// print the final ASCII bit
 	printf(" ; %s\n", buff);
 	return i;
 }
 
+/* edit the data of target address */
 void edit(int target_address, int data, void *addr) {
 	//unsigned char *pc = (unsigned char*)addr;
 	((unsigned char*)addr)[target_address] = data;
 }
 
+/* fill the data from start address to end address */
 void fill(int start, int end, int data, void *addr){
 	unsigned char *pc = (unsigned char*)addr;	
 	for (int i = start; i <= end; i++) {
@@ -583,11 +519,14 @@ void fill(int start, int end, int data, void *addr){
 	}
 }
 
+/* insert to hash table */
 void insert(struct Inst inst_record, struct Record *hash_table[])
 {
 	unsigned char *key, h;
 	struct Record *temp;
 	key = inst_record.mnemonic;
+
+	// skip it if inst already exist 
 	if (search_element(key, hash_table) != -1)
 	{
 		return;
@@ -599,6 +538,7 @@ void insert(struct Inst inst_record, struct Record *hash_table[])
 	hash_table[h] = temp;
 }
 
+/* search position of element */
 int search_element(unsigned char * key, struct Record *hash_table[])
 {
 	int h;
@@ -616,6 +556,7 @@ int search_element(unsigned char * key, struct Record *hash_table[])
 	return -1;
 }
 
+/* get opcode by key */
 void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]){
 	int h;
 	struct Record *ptr;
@@ -629,6 +570,7 @@ void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]){
 	}
 }
 
+/* print hash table of opcode list */
 void opcodelist(struct Record *hash_table[]) {
 	for (int count = 0; count < HASH_TABLE_MAX; count++) {
 		printf("%02d : ", count);
@@ -648,6 +590,7 @@ void opcodelist(struct Record *hash_table[]) {
 	}
 }
 
+/* calculate hash function of string by djb2 algorithm of Dan Bernstein */
 int hash_function(unsigned char * key) {
 	unsigned long hash = 5381;
 	int c;
