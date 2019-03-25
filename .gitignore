@@ -1,9 +1,9 @@
 .viminfo
-
+.profile
 .cache
 
 main
-a.out
+*.out
 
 .main.c.swo
 .bashrc
