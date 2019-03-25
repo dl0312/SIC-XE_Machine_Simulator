@@ -30,7 +30,6 @@ int main(void) {
 	// init dump addresses
 	unsigned char addr[16*65536] = { 0 };
 	int last_addr = 0;
-	char *ptr;
 
 	// dynamic allocate LinkedList of history
 	LinkedList *L = (LinkedList *)malloc(sizeof(LinkedList));
@@ -60,10 +59,10 @@ int main(void) {
 	while (1) {
 
 		// reset cmd, args
-		unsigned char *cmd;
-		unsigned char *arg1 = NULL;
-		unsigned char *arg2 = NULL;
-		unsigned char *arg3 = NULL;
+		char *cmd;
+		char *arg1 = NULL;
+		char *arg2 = NULL;
+		char *arg3 = NULL;
 
 		// command input
 		printf("sicsim> ");
@@ -267,7 +266,7 @@ int main(void) {
 		} else if (strcmp(cmd, "opcode") == 0){
 			if(arg1!=NULL){
 				// opcode mnemonic
-				get_opcode_by_key(arg1, hash_table);
+				get_opcode_by_key((unsigned char*)arg1, hash_table);
 			}
 		} else if (strcmp(cmd, "opcodelist") == 0) {
 			// opcodelist
@@ -524,7 +523,7 @@ void insert(struct Inst inst_record, struct Record *hash_table[])
 {
 	unsigned char *key, h;
 	struct Record *temp;
-	key = inst_record.mnemonic;
+	key = (unsigned char*)inst_record.mnemonic;
 
 	// skip it if inst already exist 
 	if (search_element(key, hash_table) != -1)
@@ -547,7 +546,7 @@ int search_element(unsigned char * key, struct Record *hash_table[])
 	ptr = hash_table[h];
 	while (ptr != NULL)
 	{
-		if (strcmp(ptr->data.mnemonic, key) == 0)
+		if (strcmp(ptr->data.mnemonic, (char *)key) == 0)
 		{
 			return h;
 		}
@@ -563,7 +562,7 @@ void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]){
 	h = hash_function(key);
 	ptr = hash_table[h];
 	while (ptr != NULL){
-		if(strcmp(ptr->data.mnemonic, key) == 0){
+		if(strcmp(ptr->data.mnemonic, (char *)key) == 0){
 			printf("opcode is %02X\n", ptr->data.opcode);
 		}
 		ptr = ptr->link;
@@ -578,11 +577,11 @@ void opcodelist(struct Record *hash_table[]) {
 		int start_flag = 1;
 		while (ptr != NULL && ptr->link != NULL) {
 			if (start_flag) {
-				printf("[%s, %X]", ptr->data.mnemonic, ptr->data.opcode);
+				printf("[%s,%02X]", ptr->data.mnemonic, ptr->data.opcode);
 				start_flag = 0;
 			}
 			else {
-				printf(" -> [%s, %X]", ptr->data.mnemonic, ptr->data.opcode);
+				printf(" -> [%s,%02X]", ptr->data.mnemonic, ptr->data.opcode);
 			}
 			ptr = ptr->link;
 		}
@@ -594,7 +593,8 @@ void opcodelist(struct Record *hash_table[]) {
 int hash_function(unsigned char * key) {
 	unsigned long hash = 5381;
 	int c;
-    	while (c = *key++)
+    	while ((c = *key++)){
 		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	}
 	return hash%HASH_TABLE_MAX;
 }

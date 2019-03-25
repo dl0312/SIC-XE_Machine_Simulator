@@ -1,4 +1,5 @@
 CC = gcc
+CFLAGS = -Wall
 TARGET = 20131582.out
 $(TARGET) : 20131582.c
-	$(CC) -o $(TARGET) 20131582.c
+	$(CC) $(CFLAGS) -o $(TARGET) 20131582.c
