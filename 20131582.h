@@ -23,6 +23,9 @@ typedef struct Record {
 
 int main(void);
 
+// type filename
+int type_file(char * filename);
+
 // h[elp] command
 void display_help(void);
 void display_dir(void);

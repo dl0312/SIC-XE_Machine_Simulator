@@ -271,6 +271,11 @@ int main(void) {
 		} else if (strcmp(cmd, "opcodelist") == 0) {
 			// opcodelist
 			opcodelist(hash_table);
+		} else if (strcmp(cmd, "type") == 0) {
+			// type filename
+			if(arg1!=NULL){
+				type_file(arg1);
+			}
 		} else {
 			// wrong command
 			printf("wrong command\n");
@@ -283,6 +288,29 @@ int main(void) {
 
 	// quit machine
 	return 0;
+}
+
+int type_file(char * filename){
+	printf("%s\n", filename);
+	FILE *fptr; 
+ 	char c; 
+ 	// Open file 
+    	fptr = fopen(filename, "r"); 
+    	if (fptr == NULL) 
+    	{ 
+        	printf("Cannot open file \n"); 
+        	exit(0); 
+    	} 
+  
+    	// Read contents from file 
+    	c = fgetc(fptr); 
+   	 while (c != EOF) 
+    	{ 
+        	printf ("%c", c); 
+        	c = fgetc(fptr); 
+    	}
+    	fclose(fptr); 
+    	return 0; 
 }
 
 /* display commands */
