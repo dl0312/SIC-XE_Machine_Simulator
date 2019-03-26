@@ -1,3 +1,8 @@
+#define _CRT_SECURE_NO_WARNINGS
+#define	MAX	100
+#define HASH_TABLE_MAX 20
+#define SYMBOL_TABLE_MAX 5
+
 typedef struct LinkedList {
         struct Node *cur;
         struct Node *head;
@@ -15,35 +20,75 @@ typedef struct Inst {
         char format[10];
 } Inst;
 
-typedef struct Record {
+typedef struct Symbol {
+	int loc;
+	char symbol[10];
+} Symbol;
+
+typedef struct HashRecord {
         struct Inst data;
-        struct Record *link;
-} Record;
+        struct HashRecord *link;
+} HashRecord;
+
+typedef struct SymbolRecord {
+        struct Symbol data;
+        struct SymbolRecord *link;
+} SymbolRecord;
+
+typedef struct Statement {
+	int loc;
+	char * label;
+	char * opcode;
+	char * operand;
+} Statement;
 
 
 int main(void);
+
+// assemble asm file
+int assemble_file(char * filename);
 
 // type filename
 int type_file(char * filename);
 
 // h[elp] command
-void display_help(void);
-void display_dir(void);
+int display_help(void);
+int display_dir(void);
 
 // history linked list
-void createNode(LinkedList * L, char cmd[]);
-void printNodes(LinkedList * L);
+int createNode(LinkedList * L, char cmd[]);
+int printNodes(LinkedList * L);
 
 // hex dump
-int hexDump(int last_addr, void * addr);
-int hexDumpWithStart(int start, void * addr);
-int hexDumpWithStartEnd(int start, int end, void * addr);
+int hexDump(int last_addr);
+int hexDumpWithStart(int start);
+int hexDumpWithStartEnd(int start, int end);
 
+int insert_symbol_table(struct Symbol symbol);
+int insert_hash_table(struct Inst inst_record);
+int search_element_symbol_table(unsigned char * key);
+int search_element_hash_table(unsigned char * key);
+int get_opcode_by_key(unsigned char * key);
+char* get_format_by_key(unsigned char * key);
+int opcodelist(void);
+int print_symbol_table(void);
+int hash_function(unsigned char * key, int length);
+int edit(int target_address, int data);
+int fill(int start, int end, int data);
 
-void insert(struct Inst inst_record, struct Record *hash_table[]);
-int search_element(unsigned char * key, struct Record *hash_table[]);
-void get_opcode_by_key(unsigned char * key, struct Record *hash_table[]);
-void opcodelist(struct Record *hash_table[]);
-int hash_function(unsigned char * key);
-void edit(int target_address, int data, void *addr);
-void fill(int start, int end, int data, void *addr);
+// symbol table
+struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
+
+// hash table of opcode list
+struct HashRecord *hash_table[HASH_TABLE_MAX];
+
+struct Inst inst_record;
+// init dump addresses
+unsigned char addr[16*65536] = { 0 };
+int last_addr = 0;
+
+// dynamic allocate LinkedList of history
+LinkedList *L;
+
+// file input stream
+FILE *fp_opcode;
