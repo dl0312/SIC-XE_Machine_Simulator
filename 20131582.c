@@ -14,6 +14,7 @@ int main(void) {
 	L->head = NULL;
 	L->tail = NULL;
 
+
 	// init symbol table
 	for (int count = 0; count <= SYMBOL_TABLE_MAX - 1; count++)
 	{
@@ -202,8 +203,8 @@ int main(void) {
 		}
 		else if (strcmp(cmd, "hi") == 0 || strcmp(cmd, "history") == 0) {
 			// hi[story]
-			createNode(L, tmp_input);
-			printNodes(L);
+			createNode(tmp_input);
+			printNodes();
 			continue;
 		}
 		else if (strcmp(cmd, "du") == 0 || strcmp(cmd, "dump") == 0) {
@@ -282,7 +283,7 @@ int main(void) {
 			continue;
 		}
 		// create node on history linked list
-		createNode(L, tmp_input);
+		createNode(tmp_input);
 	}
 
 	// quit machine
@@ -485,7 +486,7 @@ int display_dir(void) {
 }
 
 /* create node on history linked list */
-int createNode(LinkedList *L, char cmd[]) {
+int createNode(char cmd[]) {
 	Node *newNode = (Node *)malloc(sizeof(Node));
 	newNode->data = strdup(cmd);
 	newNode->next = NULL;
@@ -499,7 +500,7 @@ int createNode(LinkedList *L, char cmd[]) {
 }
 
 /* print each nodes on history linked list */
-int printNodes(LinkedList *L) {
+int printNodes(void) {
 	Node *p = L->head;
 	int cnt = 1;
 	while (p != NULL) {
@@ -682,6 +683,10 @@ int fill(int start, int end, int data){
 
 /* insert to symbol table */
 int insert_symbol_table(struct Symbol symbol){
+	// insert to symbol linked list
+	symbol_ctr ++;
+
+	// insert to symbol table
 	unsigned char *key, h;
 	struct SymbolRecord *temp;
 	key = (unsigned char*)symbol.symbol;
@@ -696,6 +701,10 @@ int insert_symbol_table(struct Symbol symbol){
 	temp->data = symbol;
 	temp->link = symbol_table[h];
 	symbol_table[h] = temp;
+
+	S = (Symbol *)realloc(S, sizeof(Symbol) * (symbol_ctr));
+	strcpy(S[symbol_ctr-1].symbol, temp->data.symbol);
+	S[symbol_ctr-1].loc = temp->data.loc;
 	return 0;
 }
 
@@ -808,24 +817,39 @@ int opcodelist() {
 
 /* print symbol table of opcode list */
 int print_symbol_table(void) {
-	for (int count = 0; count < SYMBOL_TABLE_MAX; count++) {
-		printf("%02d : ", count);
-		struct SymbolRecord *ptr = symbol_table[count];
-		int start_flag = 1;
-		while (ptr != NULL) {
-			if (start_flag) {
-				printf("[%s, %04X]", ptr->data.symbol, ptr->data.loc);
-				start_flag = 0;
-			}
-			else {
-				printf(" -> [%s, %04X]", ptr->data.symbol, ptr->data.loc);
-			}
-			ptr = ptr->link;
-		}
-		printf("\n");
+	// for (int count = 0; count < SYMBOL_TABLE_MAX; count++) {
+	// 	printf("%02d : ", count);
+	// 	struct SymbolRecord *ptr = symbol_table[count];
+	// 	int start_flag = 1;
+	// 	while (ptr != NULL) {
+	// 		if (start_flag) {
+	// 			printf("[%s, %04X]", ptr->data.symbol, ptr->data.loc);
+	// 			start_flag = 0;
+	// 		}
+	// 		else {
+	// 			printf(" -> [%s, %04X]", ptr->data.symbol, ptr->data.loc);
+	// 		}
+	// 		ptr = ptr->link;
+	// 	}
+	// 	printf("\n");
+	// }
+
+    qsort(S, symbol_ctr, sizeof(struct Symbol), myCompare); 
+
+	for(int count = 0; count < symbol_ctr; count++) {
+		printf("\t%s\t%04X\n", S[count].symbol, S[count].loc);
 	}
 	return 0;
 }
+
+// Defining comparator function as per the requirement 
+int myCompare(const void* a,const void* b) 
+{ 
+	struct Symbol * symbol_a = (struct Symbol *)a;
+	struct Symbol * symbol_b = (struct Symbol *)b;
+    // setting up rules for comparison 
+    return strcmp((*symbol_b).symbol, (*symbol_a).symbol); 
+} 
 
 /* calculate hash function of string by djb2 algorithm of Dan Bernstein */
 int hash_function(unsigned char * key, int length) {
@@ -836,3 +860,4 @@ int hash_function(unsigned char * key, int length) {
 	}
 	return hash%length;
 }
+

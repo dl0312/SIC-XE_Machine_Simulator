@@ -4,20 +4,20 @@
 #define SYMBOL_TABLE_MAX 5
 
 typedef struct LinkedList {
-        struct Node *cur;
-        struct Node *head;
-        struct Node *tail;
+    struct Node *cur;
+    struct Node *head;
+    struct Node *tail;
 } LinkedList;
 
 typedef struct Node {
-        char *data;
-        struct Node *next;
+    char *data;
+    struct Node *next;
 } Node;
 
 typedef struct Inst {
-        int opcode;
-        char mnemonic[10];
-        char format[10];
+    int opcode;
+    char mnemonic[10];
+    char format[10];
 } Inst;
 
 typedef struct Symbol {
@@ -26,8 +26,8 @@ typedef struct Symbol {
 } Symbol;
 
 typedef struct HashRecord {
-        struct Inst data;
-        struct HashRecord *link;
+    struct Inst data;
+    struct HashRecord *link;
 } HashRecord;
 
 typedef struct SymbolRecord {
@@ -56,8 +56,8 @@ int display_help(void);
 int display_dir(void);
 
 // history linked list
-int createNode(LinkedList * L, char cmd[]);
-int printNodes(LinkedList * L);
+int createNode(char cmd[]);
+int printNodes(void);
 
 // hex dump
 int hexDump(int last_addr);
@@ -75,6 +75,7 @@ int print_symbol_table(void);
 int hash_function(unsigned char * key, int length);
 int edit(int target_address, int data);
 int fill(int start, int end, int data);
+int myCompare(const void* a,const void* b);
 
 // symbol table
 struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
@@ -86,9 +87,10 @@ struct Inst inst_record;
 // init dump addresses
 unsigned char addr[16*65536] = { 0 };
 int last_addr = 0;
+int symbol_ctr = 0;
 
-// dynamic allocate LinkedList of history
-LinkedList *L;
+struct LinkedList *L;
+struct Symbol * S;
 
 // file input stream
 FILE *fp_opcode;
