@@ -76,6 +76,8 @@ int hash_function(unsigned char * key, int length);
 int edit(int target_address, int data);
 int fill(int start, int end, int data);
 int myCompare(const void* a,const void* b);
+int get_loc_by_symbol(unsigned char * key);
+
 
 // symbol table
 struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
@@ -86,7 +88,9 @@ struct HashRecord *hash_table[HASH_TABLE_MAX];
 struct Inst inst_record;
 // init dump addresses
 unsigned char addr[16*65536] = { 0 };
+int regi_x = 0x10, regi_a = 0x00, regi_s = 0x40;
 int last_addr = 0;
+
 int symbol_ctr = 0;
 
 struct LinkedList *L;
