@@ -2,6 +2,14 @@
 #define	MAX	100
 #define HASH_TABLE_MAX 20
 #define SYMBOL_TABLE_MAX 5
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include <dirent.h>
+#include <inttypes.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 typedef struct LinkedList {
     struct Node *cur;
@@ -88,11 +96,13 @@ struct HashRecord *hash_table[HASH_TABLE_MAX];
 struct Inst inst_record;
 // init dump addresses
 unsigned char addr[16*65536] = { 0 };
-int regi_x = 0x10, regi_a = 0x00, regi_s = 0x40;
+int regi_x = 0x10, regi_a = 0x00, regi_s = 0x40, regi_t = 0x50;
 int last_addr = 0;
 
-int symbol_ctr = 0;
-
+int symbol_ctr;
+char program_name[10];
+int starting_address;
+int ending_address;
 struct LinkedList *L;
 struct Symbol * S;
 

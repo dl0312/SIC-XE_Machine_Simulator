@@ -1,11 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
-#include <dirent.h>
-#include <inttypes.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include "20131582.h"
 
 int main(void) {
@@ -293,39 +285,41 @@ int main(void) {
 
 int assemble_file(char * filename){
 	// FILE *fp_asm, *fp_lst, * fp_obj;
-	FILE *fp_asm;
+	FILE *fp_asm, *fp_lst, *fp_obj;
 	// int locctr, start, length, opcode;
-	int locctr, start, opcode, counter;
+	int locctr, start, opcode, counter, line;
 	char tmp_str[MAX];
 	char c, tmp,label[10], mnemonic[10], operand[10], operand2[10];
 	char * format_str;
 	int base;
 	int format;
+	symbol_ctr = 0;
 	// Open assembler file
-	fp_asm = fopen(filename, "r");
-	// fp_lst = fopen("20131582.lst", "w");
-	// fp_obj = fopen("20131582.obj", "w");
-	if (!fp_asm){
-		printf("Cannot open file \n");
-		return 0;
-	}
+	fp_lst = fopen("20131582.lst", "w");
+	fp_obj = fopen("20131582.obj", "w");
 	
 	// pass 1 of assembler
 	for(int pass = 1; pass<3 ; pass++){
 		fp_asm = fopen(filename, "r");
-		// fp_lst = fopen("20131582.lst", "w");
-		// fp_obj = fopen("20131582.obj", "w");
+		line  = 5;
 		if (!fp_asm){
 			printf("Cannot open file \n");
 			return 0;
 		}
 		fscanf(fp_asm,"%s%s%s",label, mnemonic, operand);
+		strcpy(program_name, label);
+		starting_address = (int)strtol(operand, NULL, 16);
 		printf("\n----------------- pass %d of assembler start -----------------\n\n", pass);
 		if(strcmp(mnemonic, "START") == 0)
 		{
 			start = atoi(operand);
 			locctr = start;
-			printf("loc: %04X\tlabel: %s\tmnemonic: %s\toperand: %s\n",locctr, label, mnemonic, operand);
+			printf("%04X\t%s\t%s\t%s\n",locctr, label, mnemonic, operand);
+			if(pass==2){
+				fprintf(fp_lst, "%d\t%04X\t%s\t%s\t%s\n", line, locctr, label, mnemonic, operand);
+				fprintf(fp_obj, "H%s\t%06X%06X\n", program_name, starting_address, ending_address-starting_address);
+				line += 5;
+			}
 		} else {
 			locctr = 0;
 		}
@@ -340,24 +334,46 @@ int assemble_file(char * filename){
 			memset(operand, 0, sizeof(operand));
 			format_str = NULL;
 			c = getc(fp_asm);
+			if(pass == 2){
+				line += 5;
+			}
 			if(c == ' '){
 				fscanf(fp_asm,"%s\n", mnemonic);
-				if(strcmp(mnemonic, "RSUB") == 0){
+				if(strcmp(mnemonic, "END") == 0){
+					// return to caller
+					fscanf(fp_asm,"%s%c", operand, &tmp);
+					printf("loc: %04X\t\t\tmnemonic: %s\toperand: %s\n",locctr, mnemonic, operand);
+					if(pass == 2){
+						fprintf(fp_lst, "%d\t\t\t\t\t%s \t%s\n", line, mnemonic, operand);
+					}
+				} else if (strcmp(mnemonic, "RSUB") == 0){
 					// return to caller
 					printf("loc: %04X\t\t\tmnemonic: %s\n", locctr, mnemonic);
+					if(pass == 2){
+						fprintf(fp_lst, "%d\t%04X\t\t\t%s\t\t", line, locctr, mnemonic);
+					}
 				} else if(strcmp(mnemonic, "LDCH") == 0 || strcmp(mnemonic, "STCH") == 0){
 					// LDCH or STCH
 					fscanf(fp_asm,"%s%s", operand, operand2);
+					operand[strlen(operand)-1] = '\0';
 					printf("loc: %04X\t\t\tmnemonic: %s\toperand: %s\toperand2: %s\n",locctr, mnemonic, operand, operand2);
-					if(strlen(operand2) == 1){
+					if(pass == 2){
+						fprintf(fp_lst, "%d\t%04X\t\t\t%s \t%s\t%s\t", line, locctr, mnemonic, operand, operand2);
+					}
+					if(strlen(operand2) == 1 && strcmp(operand2, "X") == 0){
 						ungetc(' ', fp_asm);
+						xbpe[0] = '1';
 					} else {
 						printf("not register");
 					}
 				} else if(strcmp(mnemonic, "COMPR") == 0){
 					// COMPR
 					fscanf(fp_asm,"%s%s", operand, operand2);
+					operand[strlen(operand)-1] = '\0';
 					printf("loc: %04X\t\t\tmnemonic: %s\toperand: %s\toperand2: %s\n",locctr, mnemonic, operand, operand2);
+					if(pass == 2){
+						fprintf(fp_lst, "%d\t%04X\t\t\t%s \t%s\t%s\t", line, locctr, mnemonic, operand, operand2);
+					}
 					if(strlen(operand2) == 1){
 						ungetc(' ', fp_asm);
 					} else {
@@ -368,21 +384,26 @@ int assemble_file(char * filename){
 					fscanf(fp_asm,"%s%c", operand, &tmp);
 					base = get_loc_by_symbol((unsigned char*)operand);
 					printf("loc: %04X\t\t\tmnemonic: %s\toperand: %s\n",locctr, mnemonic, operand);
+					if(pass == 2){
+						fprintf(fp_lst, "%d\t\t\t\t\t%s \t%s\n", line, mnemonic, operand);
+					}
 				} else{
 					// without label
 					fscanf(fp_asm,"%s%c", operand, &tmp);
 					printf("loc: %04X\t\t\tmnemonic: %s\toperand: %s\n",locctr, mnemonic, operand);
-					
+					if(pass == 2) fprintf(fp_lst, "%d\t%04X\t\t\t%s \t%s\t", line, locctr, mnemonic, operand);
 				}
 			} else if(c == '.'){
 				// comment
 				fgets(tmp_str, sizeof(tmp_str), fp_asm);
 				printf("%s", tmp_str);
+				if(pass == 2) fprintf(fp_lst, "%d\t%s", line, tmp_str);
 			} else {
 				// with label
 				ungetc(c, fp_asm);
 				fscanf(fp_asm, "%s%s%s%c", label, mnemonic, operand, &tmp);
 				printf("loc: %04X\tlabel: %s\tmnemonic: %s\toperand: %s\n", locctr, label, mnemonic, operand);
+				if(pass == 2) fprintf(fp_lst, "%d\t%04X\t%s \t%s \t%s\t", line, locctr, label, mnemonic, operand);
 				if(pass == 1){
 					struct Symbol symbol;
 					symbol.loc = locctr;
@@ -409,20 +430,23 @@ int assemble_file(char * filename){
 							int symbol_loc = get_loc_by_symbol((unsigned char*)operand  + sizeof(unsigned char));
 							int pc = locctr + counter;
 							int disp = symbol_loc - pc;
-							printf("symbol loc: %04X\tpc: %04X\n", symbol_loc, pc);
+							// printf("symbol loc: %04X\tpc: %04X\n", symbol_loc, pc);
 							if(disp < 0x1000 && disp > -1*0x1000){
 								// pc
 								xbpe[2] = '1';
 								printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
+								if(pass == 2) fprintf(fp_lst,"%02X%01X%03X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
 							} else {
 								// base
 								xbpe[1] = '1';
 								disp = symbol_loc - base;
 								printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
+								if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
 							}
 						} else {
 							int address = (int)strtol(operand + sizeof(unsigned char), NULL, 16);
 							printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
+							if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
 						}
 					} else if(operand[0] == '@'){
 						// indirect addressing
@@ -431,53 +455,77 @@ int assemble_file(char * filename){
 							int symbol_loc = get_loc_by_symbol((unsigned char*)operand  + sizeof(unsigned char));
 							int pc = locctr + counter;
 							int disp = symbol_loc - pc;
-							printf("symbol loc: %04X\tpc: %04X\n", symbol_loc, pc);
+							// printf("symbol loc: %04X\tpc: %04X\n", symbol_loc, pc);
 							if(disp < 0x1000 && disp > -1*0x1000){
 								// pc
 								xbpe[2] = '1';
 								printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
+								if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
 							} else {
 								// base
 								xbpe[1] = '1';
 								disp = symbol_loc - base;
-								printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
+								if(disp>=0){
+									printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
+									if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), disp);
+								} else {
+									printf("cannot represent pc register or base register\n");
+								}
 							}
 						}
 					} else {
+						// simple addressing
 						if(get_loc_by_symbol((unsigned char*)operand) != -1){
 							ni[0] = '1';
 							ni[1] = '1';
 							int symbol_loc = get_loc_by_symbol((unsigned char*)operand);
 							int pc = locctr + counter;
 							int disp = symbol_loc - pc;
-							printf("symbol loc: %04X\tpc: %04X\n", symbol_loc, pc);
+							// printf("symbol loc: %04X\tpc: %04X\n", symbol_loc, pc);
 							if(disp < 0x1000 && disp > -1*0x1000){
 								// pc
 								xbpe[2] = '1';
-								printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
+								// printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
 								if(disp >= 0){
 									printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp));
+									if(pass == 2) fprintf(fp_lst, "%02X%01X%03X \n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp));
 								} else {
 									printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp + 0x1000));
+									if(pass == 2) fprintf(fp_lst, "%02X%01X%03X \n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp + 0x1000));
 								}
 							} else {
 								// base
 								xbpe[1] = '1';
 								disp = symbol_loc - base;
-								printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
+								// printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
 								if(disp >= 0){
 									printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp));
+									if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp));
 								} else {
 									printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp + 0x1000));
-								}							}
-						} else if (strlen(operand) == 1){
-							if(operand[0] == 'X'){
-								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_x);
-							} else if(operand[0] == 'A'){
-								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_a);
-							} else if(operand[0] == 'S'){
-								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_s);
+									if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp + 0x1000));
+								}							
 							}
+						} else if (strlen(operand) == 1 && strcmp(format_str, "2") == 0){
+							if(strcmp(operand, "X") == 0){
+								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_x);
+								if(pass == 2) fprintf(fp_lst, "%02X%02X\n", opcode, regi_x);
+							} else if(strcmp(operand, "A") == 0){
+								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_a);
+								if(pass == 2) fprintf(fp_lst, "%02X%02X\n", opcode, regi_a);
+							} else if(strcmp(operand, "S") == 0){
+								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_s);
+								if(pass == 2) fprintf(fp_lst, "%02X%02X\n", opcode, regi_s);
+							} else if(strcmp(operand, "T") == 0){
+								printf("\nopcode: %02X\tobject code: %02X%02X\n\n", opcode, opcode, regi_t);
+								if(pass == 2) fprintf(fp_lst, "%02X%02X\n", opcode, regi_t);
+							}
+						}	else if(strcmp(mnemonic, "RSUB") == 0){
+							ni[0] = '1';
+							ni[1] = '1';
+							int disp = 0;
+							printf("\nopcode: %02X\tobject code: %02X%01X%03X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp));
+							if(pass == 2) fprintf(fp_lst, "%02X%01X%03X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), (uint16_t)(disp));
 						}
 					}
 				}
@@ -492,11 +540,13 @@ int assemble_file(char * filename){
 						if(get_loc_by_symbol((unsigned char*)operand + sizeof(unsigned char)) != -1){
 							// format 4
 							int address = get_loc_by_symbol((unsigned char*)operand);
-							printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
+							// printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
 							printf("\nopcode: %02X\tobject code: %02X%01X%05X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
+							if(pass == 2) fprintf(fp_lst, "%02X%01X%05X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
 						} else {
 							int address = (int)strtol(operand + sizeof(unsigned char), NULL, 10);
 							printf("\nopcode: %02X\tobject code: %02X%01X%05X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
+							if(pass == 2) fprintf(fp_lst, "%02X%01X%05X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
 						}
 					} else if(operand[0] == '@'){
 						// indirect addressing
@@ -504,8 +554,9 @@ int assemble_file(char * filename){
 						if(get_loc_by_symbol((unsigned char*)operand + sizeof(unsigned char)) != -1){
 							// format 4
 							int address = get_loc_by_symbol((unsigned char*)operand);
-							printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
+							// printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
 							printf("\nopcode: %02X\tobject code: %02X%01X%05X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
+							if(pass == 2) fprintf(fp_lst, "%02X%01X%05X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
 						}
 					} else {
 						if(get_loc_by_symbol((unsigned char*)operand) != -1){
@@ -513,8 +564,9 @@ int assemble_file(char * filename){
 							ni[0] = '1';
 							ni[1] = '1';
 							int address = get_loc_by_symbol((unsigned char*)operand);
-							printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
+							// printf("xbpe: %c%c%c%c\n", xbpe[0], xbpe[1], xbpe[2], xbpe[3]);
 							printf("\nopcode: %02X\tobject code: %02X%01X%05X\n\n", opcode, opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
+							if(pass == 2) fprintf(fp_lst, "%02X%01X%05X\n", opcode+(int)strtol(ni, NULL, 2), (int)strtol(xbpe, NULL, 2), address);
 						}
 					}
 				}
@@ -522,8 +574,10 @@ int assemble_file(char * filename){
 				counter = 3;
 			} else if(strcmp(mnemonic, "RESW") == 0){
 				counter = (3*(atoi(operand)));
+				if(pass == 2) fprintf(fp_lst, "\n");
 			} else if(strcmp(mnemonic, "RESB") == 0){
 				counter = atoi(operand);
+				if(pass == 2) fprintf(fp_lst, "\n");
 			} else if(strcmp(mnemonic, "BYTE") == 0){
 				char type = operand[0];
 				char * byte_ary;
@@ -544,18 +598,23 @@ int assemble_file(char * filename){
 						printf("object code: ");
 						for(int i = 0; i < strlen(byte_ary); i++){
 							printf("%02X", byte_ary[i]);
+							if(pass == 2) fprintf(fp_lst, "%02X", byte_ary[i]);
 						}
 						printf("\n");
+						if(pass == 2) fprintf(fp_lst, "\n");
 					}
 				} else if(type == 'X'){
 					counter = strlen(byte_ary)/2;
 					if(pass == 2){
 						if(counter == 1){
 							printf("object code: %02X\n", (int)strtol(byte_ary, NULL, 16));
+							if(pass == 2) fprintf(fp_lst, "%02X\n", (int)strtol(byte_ary, NULL, 16));
 						} else if(counter == 2){
 							printf("object code: %04X\n", (int)strtol(byte_ary, NULL, 16));
+							if(pass == 2) fprintf(fp_lst, "%04X\n", (int)strtol(byte_ary, NULL, 16));
 						} else if(counter == 3){
 							printf("object code: %06X\n", (int)strtol(byte_ary, NULL, 16));
+							if(pass == 2) fprintf(fp_lst, "%06X\n", (int)strtol(byte_ary, NULL, 16));
 						}
 					}
 				} else {
@@ -566,10 +625,13 @@ int assemble_file(char * filename){
 			locctr += counter;
 		}
 		fclose(fp_asm);
+		if(pass == 1) ending_address = locctr;
 	}
-
-	printf("\n--------------- pass 1,2 of assembler ---------------------\n");
 	printf("%d %d\n", locctr, format);
+	fclose(fp_lst);
+	fclose(fp_obj);
+	printf("\n--------------- pass 1,2 of assembler ---------------------\n");
+	
 	return 0;	
 }
 
@@ -897,6 +959,7 @@ int search_element_symbol_table(unsigned char * key)
 		{
 			return h;
 		}
+		printf("%s", ptr->data.symbol);
 		ptr = ptr->link;
 	}
 	return -1;
