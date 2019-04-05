@@ -1,7 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-#define	MAX	100
-#define HASH_TABLE_MAX 20
-#define SYMBOL_TABLE_MAX 5
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -11,16 +7,47 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+/*************************
+ * Constants and Macros.
+ * ***********************/
+#define _CRT_SECURE_NO_WARNINGS    // prevent compile error because of sprintf security alert 
+#define MEMSIZE		            (1 << 20)
+#define	MAX	                    100
+#define	MAXLEN		            80
+#define HASH_TABLE_MAX          20
+#define SYMBOL_TABLE_MAX        5
+
+/**************************
+ * Linked List Structure.
+ **************************/
+typedef struct Node {
+    void *data;
+    struct Node *link;
+} Node;
+
 typedef struct LinkedList {
-    struct Node *cur;
     struct Node *head;
-    struct Node *tail;
+    int size;
 } LinkedList;
 
-typedef struct Node {
-    char *data;
-    struct Node *next;
-} Node;
+LinkedList* initList(void);
+void appendList(LinkedList*, void*);
+void printHistory(LinkedList*);
+
+/**************************
+ * Record Structure.
+ * ************************/
+typedef enum RecordType {
+    // type of records.
+    TEXT, HEADER
+} RecordType;
+
+typedef struct Record {
+    int start, end, len;
+    RecordType type;
+    char content[MAXLEN << 1];
+} Record;
+
 
 typedef struct Inst {
     int opcode;
@@ -51,60 +78,64 @@ typedef struct Statement {
 } Statement;
 
 
+/********************
+ * Functions.
+ * ******************/
 int main(void);
-
-// assemble asm file
-int assemble_file(char * filename);
-
-// type filename
-int type_file(char * filename);
-
-// h[elp] command
+int processCmd(char*);
+int loadOpcodelist(void);
+int loadOpcode(void);
+int assemble_file(char*);
+int type_file(char*);
 int display_help(void);
 int display_dir(void);
-
-// history linked list
-int createNode(char cmd[]);
-int printNodes(void);
-
-// hex dump
-int hexDump(int last_addr);
-int hexDumpWithStart(int start);
-int hexDumpWithStartEnd(int start, int end);
-
-int insert_symbol_table(struct Symbol symbol);
-int insert_hash_table(struct Inst inst_record);
-int search_element_symbol_table(unsigned char * key);
-int search_element_hash_table(unsigned char * key);
-int get_opcode_by_key(unsigned char * key);
-char* get_format_by_key(unsigned char * key);
+int hexDump(int);
+int hexDumpWithStart(int);
+int hexDumpWithStartEnd(int, int);
+int insert_symbol_table(struct Symbol);
+int insert_hash_table(struct Inst);
+int search_element_symbol_table(unsigned char*);
+int search_element_hash_table(unsigned char*);
+int get_opcode_by_key(unsigned char*);
+char* get_format_by_key(unsigned char*);
 int opcodelist(void);
 int print_symbol_table(void);
-int hash_function(unsigned char * key, int length);
-int edit(int target_address, int data);
-int fill(int start, int end, int data);
-int myCompare(const void* a,const void* b);
-int get_loc_by_symbol(unsigned char * key);
+int hash_function(unsigned char*, int);
+int edit(int, int);
+int fill(int, int, int);
+int myCompare(const void*,const void*);
+int get_loc_by_symbol(unsigned char*);
 
 
-// symbol table
+/*********************
+ * Global variable.
+ * *******************/
 struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
-
-// hash table of opcode list
 struct HashRecord *hash_table[HASH_TABLE_MAX];
-
 struct Inst inst_record;
-// init dump addresses
-unsigned char addr[16*65536] = { 0 };
-int regi_x = 0x10, regi_a = 0x00, regi_s = 0x40, regi_t = 0x50;
+unsigned char addr[MEMSIZE] = { 0 };
+
+int regi_a = 0x0;
+int regi_x = 0x1;
+int regi_l = 0x2;
+int regi_b = 0x3;
+int regi_s = 0x4;
+int regi_t = 0x5;
+int regi_f = 0x6;
+int regi_pc = 0x8;
+int regi_sw = 0x9;
+
 int last_addr = 0;
+int object_length = 0;
+int text_record_length_ary[100];
 
 int symbol_ctr;
 char program_name[10];
 int starting_address;
 int ending_address;
-struct LinkedList *L;
-struct Symbol * S;
+int * modified_addr_ary;
+int m_size = 0;
+struct LinkedList *history = NULL;
+struct Symbol * S = NULL;
 
-// file input stream
-FILE *fp_opcode;
+
