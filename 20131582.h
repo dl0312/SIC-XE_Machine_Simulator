@@ -7,9 +7,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-/*************************
+/*
  * Constants and Macros.
- * ***********************/
+ */
 #define _CRT_SECURE_NO_WARNINGS    // prevent compile error because of sprintf security alert 
 #define MEMSIZE		            (1 << 20)
 #define	MAX	                    100
@@ -17,9 +17,9 @@
 #define HASH_TABLE_MAX          20
 #define SYMBOL_TABLE_MAX        5
 
-/**************************
+/*
  * Linked List Structure.
- **************************/
+ */
 typedef struct Node {
     void *data;
     struct Node *link;
@@ -34,9 +34,9 @@ LinkedList* initList(void);
 void appendList(LinkedList*, void*);
 void printHistory(LinkedList*);
 
-/**************************
+/*
  * Record Structure.
- * ************************/
+ */
 typedef enum RecordType {
     // type of records.
     TEXT, HEADER
@@ -48,22 +48,27 @@ typedef struct Record {
     char content[MAXLEN << 1];
 } Record;
 
-
+/*
+ * Insturction Structure.
+ */
 typedef struct Inst {
     int opcode;
     char mnemonic[10];
     char format[10];
 } Inst;
 
-typedef struct Symbol {
-	int loc;
-	char symbol[10];
-} Symbol;
-
 typedef struct HashRecord {
     struct Inst data;
     struct HashRecord *link;
 } HashRecord;
+
+/*
+ * Symbol Structure.
+ */
+typedef struct Symbol {
+	int loc;
+	char symbol[10];
+} Symbol;
 
 typedef struct SymbolRecord {
         struct Symbol data;
@@ -77,10 +82,9 @@ typedef struct Statement {
 	char * operand;
 } Statement;
 
-
-/********************
+/*
  * Functions.
- * ******************/
+ */
 int main(void);
 int processCmd(char*);
 int loadOpcodelist(void);
@@ -106,14 +110,19 @@ int fill(int, int, int);
 int myCompare(const void*,const void*);
 int get_loc_by_symbol(unsigned char*);
 
-
-/*********************
+/*
  * Global variable.
- * *******************/
+ */
 struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
 struct HashRecord *hash_table[HASH_TABLE_MAX];
 struct Inst inst_record;
+struct LinkedList *history = NULL;
+struct Symbol * S = NULL;
+
 unsigned char addr[MEMSIZE] = { 0 };
+char program_name[10];
+
+int * modified_addr_ary;
 
 int regi_a = 0x0;
 int regi_x = 0x1;
@@ -130,12 +139,6 @@ int object_length = 0;
 int text_record_length_ary[100];
 
 int symbol_ctr;
-char program_name[10];
 int starting_address;
 int ending_address;
-int * modified_addr_ary;
 int m_size = 0;
-struct LinkedList *history = NULL;
-struct Symbol * S = NULL;
-
-

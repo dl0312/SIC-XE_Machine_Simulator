@@ -322,41 +322,6 @@ int loadOpcodelist(void){
 }
 
 /*
- * Function: main
- * 
- * sic/xe machine simulator
- * 
- * return: program exit (not that important)
- * (0: success) 
- */
-int main(void) {
-	char input[MAX] = "";
-	// init symbol table
-	for (int count = 0; count <= SYMBOL_TABLE_MAX - 1; count++)
-	{
-		symbol_table[count] = NULL;
-	}
-	// init hash table
-	for (int count = 0; count <= HASH_TABLE_MAX - 1; count++)
-	{
-		hash_table[count] = NULL;
-	}
-	if(loadOpcodelist() == -1){
-		return 0;
-	}
-
-	// start sic/xe machine simulator
-	while (1) {
-		printf("sicsim> ");
-		fgets(input, sizeof(input), stdin);
-		if(processCmd(input) == -1) break;	
-	}
-
-	// quit sic/xe machine
-	return 0;
-}
-
-/*
  * Function: assemble_file
  * 
  * make ${studentID}.lst, ${studentID}.obj file with ${assemble_filename}.asm
@@ -449,7 +414,7 @@ int assemble_file(char * filename){
 						ungetc(' ', fp_asm);
 						xbpe[0] = '1';
 					} else {
-						printf("not register");
+						printf("line %d: %s is not register", line, operand2);
 					}
 				} else if(strcmp(mnemonic, "COMPR") == 0){
 					// COMPR
@@ -461,7 +426,7 @@ int assemble_file(char * filename){
 					if(strlen(operand2) == 1){
 						ungetc(' ', fp_asm);
 					} else {
-						printf("not register");
+						printf("line %d: %s is not register", line, operand2);
 					}
 				} else if(strcmp(mnemonic, "BASE") == 0){
 					// BASE
@@ -565,7 +530,7 @@ int assemble_file(char * filename){
 										strcat(record->content, tmp_content);
 									}
 								} else {
-									printf("cannot represent pc register or base register\n");
+									printf("line %d: cannot object code with either pc register and base register\n", line);
 								}
 							}
 						}
@@ -812,7 +777,7 @@ int assemble_file(char * filename){
 						}
 					}
 				} else {
-					printf("Wrong Type");
+					printf("line %d: Can't understand the type of BYTE", line);
 					return 1;
 				}
 			}
@@ -1412,5 +1377,40 @@ int hash_function(unsigned char * key, int length) {
 		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 	}
 	return hash%length;
+}
+
+/*
+ * Function: main
+ * 
+ * sic/xe machine simulator
+ * 
+ * return: program exit (not that important)
+ * (0: success) 
+ */
+int main(void) {
+	char input[MAX] = "";
+	// init symbol table
+	for (int count = 0; count <= SYMBOL_TABLE_MAX - 1; count++)
+	{
+		symbol_table[count] = NULL;
+	}
+	// init hash table
+	for (int count = 0; count <= HASH_TABLE_MAX - 1; count++)
+	{
+		hash_table[count] = NULL;
+	}
+	if(loadOpcodelist() == -1){
+		return 0;
+	}
+
+	// start sic/xe machine simulator
+	while (1) {
+		printf("sicsim> ");
+		fgets(input, sizeof(input), stdin);
+		if(processCmd(input) == -1) break;	
+	}
+
+	// quit sic/xe machine
+	return 0;
 }
 

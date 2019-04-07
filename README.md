@@ -26,3 +26,18 @@ $ make
 $ ./${studentID}.out
 sicsim>
 ```
+
+## ⌨ Command
+* h[elp]
+* d[ir]
+* q[uit]
+* hi[story]
+* du[mp] [start, end]
+* e[dit] address, value
+* f[ill] start, end, value
+* reset
+* opcode mnemonic
+* opcodelist
+* assemble filename
+* type filename
+* symbol
