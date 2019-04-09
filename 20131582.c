@@ -283,6 +283,14 @@ int processCmd(char* input){
 	} else if (strcmp(cmd, "symbol") == 0){
 		// assemble asm file
 		print_symbol_table();
+	} else if (strcmp(cmd, "progaddr") == 0){
+		// progaddr [address]
+		progaddr =  (int)strtol(arg1, NULL, 16);
+		if(safe_progaddr(progaddr) == -1){
+			printf("the address is between 0 ~ 2^20\n");
+			return 1;
+		}
+		return 0;
 	} else {
 		// wrong command
 		printf("wrong command\n");
@@ -292,6 +300,20 @@ int processCmd(char* input){
 	// create node on history linked list
 	appendList(history, (void*)tmp_input);
 	return 0;
+}
+
+/*
+ * Function: safe_progaddr
+ * 
+ * detect unsafe address reference
+ * 
+ * addr: address of proaddr
+ * return: address or error
+ * (-1: error, address(0 ~ 2^20))
+ */
+int safe_progaddr(int addr){
+	if (0 <= addr && addr < (MEMSIZE)) return addr;
+	return -1;
 }
 
 /*
@@ -326,6 +348,7 @@ int loadOpcodelist(void){
  * 
  * make ${studentID}.lst, ${studentID}.obj file with ${assemble_filename}.asm
  * 
+ * filename: assembly filename string
  * return: Success
  * (0: success, 1: failure, -1: error) 
  */
@@ -1092,7 +1115,7 @@ int hexDumpWithStartEnd(int start, int end)
  * 
  * target_address: target address
  * data: data editing 
- * return: current address
+ * return: success ( 0: success )
  */
 int edit(int target_address, int data) {
 	((unsigned char*)addr)[target_address] = data;
@@ -1328,7 +1351,7 @@ int opcodelist() {
 /*
  * Function: print_symbol_table
  * 
- * print symbol table of opcode list 
+ * print symbol table 
  * 
  * return: success (not that important)
  * (0: success)
@@ -1344,9 +1367,9 @@ int print_symbol_table(void) {
 }
 
 /*
- * Function: print_symbol_table
+ * Function: myCompare
  * 
- * define comparator function as per the requirement
+ * define comparator function
  * 
  * a: Symbol a
  * b: Symbol b

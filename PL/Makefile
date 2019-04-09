@@ -1,0 +1,1 @@
+gcc -S -fno-asynchronous-unwind-tables -fno-dwarf2-cfi-asm test.c

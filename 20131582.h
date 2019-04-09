@@ -109,6 +109,7 @@ int edit(int, int);
 int fill(int, int, int);
 int myCompare(const void*,const void*);
 int get_loc_by_symbol(unsigned char*);
+int safe_progaddr(int);
 
 /*
  * Global variable.
@@ -135,6 +136,7 @@ int regi_pc = 0x8;
 int regi_sw = 0x9;
 
 int last_addr = 0;
+int progaddr = 0x00;
 int object_length = 0;
 int text_record_length_ary[100];
 
