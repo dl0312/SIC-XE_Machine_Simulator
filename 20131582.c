@@ -54,6 +54,23 @@ void printHistory(LinkedList* history)
 }
 
 /*
+ * Function: printExternalSymbolTable
+ * 
+ * print each nodes on history linked list.
+ * 
+ * history: history linked list
+ */
+void printExternalSymbolTable(LinkedList* estab)
+{
+	Node* ptr = NULL;
+	int cnt = 0;
+	for (ptr = estab -> head; ptr != NULL; ptr = ptr -> link) {
+		ExternalSymbol* es_data = ((ExternalSymbol*)(ptr->data));
+		printf("%d\tname: %s\taddress: %06X\tlength: %06X\tis symbol: %d\n", ++cnt, es_data->name, es_data->address, es_data->length, es_data->is_symbol);
+	}
+}
+
+/*
  * Function: processCmd
  * 
  * process command.
@@ -63,8 +80,9 @@ void printHistory(LinkedList* history)
  * (0: right command, 1: wrong command, -1: quit) 
  */
 int processCmd(char* input){ 
-	char *cmd = NULL, *tmp_input = NULL, *arg1 = NULL, *arg2 = NULL, *arg3 = NULL;
+	char *cmd = NULL, *tmp_input = NULL, *arg1 = NULL, *arg2 = NULL, *arg3 = NULL, *tmp_arg = NULL;
 	int len = 0, flag = 0, wrong_input_flag = 0;
+	LinkedList *object_lst = NULL;
 	
 	if(history == NULL) history = initList();
 	len = strlen(input);
@@ -76,6 +94,7 @@ int processCmd(char* input){
 	
 	// flag for input state
 	cmd = input;
+	
 	for (int i = 0; i < len; i++) {
 		if (flag == 0) {
 			// input cmd
@@ -84,111 +103,200 @@ int processCmd(char* input){
 			} else if (input[i] == ' ' || input[i] == '\t') {
 				input[i] = '\0';
 				flag++;
-			} else if(input[i] == '\n'){
-				input[i] = '\0';
-				break;
-			}
-			else {
-				wrong_input_flag = 1;
-				break;
-			}
-		}
-		else if (flag == 1){
-			// empty space
-			if (input[i] == ' ' || input[i] == '\t') {
 				continue;
-			}
-			else {
-				arg1 = &input[i];
-				flag++;
-			}
-		}
-		else if (flag == 2){
-			// input arg1
-			if (input[i] == ' ' || input[i] == '\t') {
-				input[i] = '\0';
-				flag++;
-			} else if (input[i] == '\n'){
-				input[i] = '\0';
-			} else if (input[i] == ',') {
-				input[i] = '\0';
-				flag += 2;
-			}
-		}
-		else if (flag == 3) {
-			// empty space before comma
-			if (input[i] == ' ' || input[i] == '\t') {
-				input[i] = '\0';
-			}
-			else if (input[i] == ',') {
-				input[i] = '\0';
-				flag ++;
-			}
-			else {
-				wrong_input_flag = 1;
-				break;
-			}
-
-		}
-		else if (flag == 4) {
-			// empty space after comma
-			if (input[i] == ' ' || input[i] == '\t') {
-				input[i] = '\0';
-			}
-			else {
-				arg2 = &input[i];
-				flag++;
-			}
-		}
-		else if (flag == 5) {
-			// input arg2
-			if (input[i] == ' ' || input[i] == '\t') {
-				input[i] = '\0';
-				flag++;
-			} else if (input[i] == ',') {
-				input[i] = '\0';
-				flag += 2;
 			} else if(input[i] == '\n'){
 				input[i] = '\0';
-			}
-		}
-		else if (flag == 6) {
-			// empty space before comma
-			if (input[i] == ' ' || input[i] == '\t') {
-				input[i] = '\0';
-			}
-			else if (input[i] == ',') {
-				input[i] = '\0';
-				flag++;
+				break;
 			}
 			else {
 				wrong_input_flag = 1;
 				break;
 			}
 		}
-		else if (flag == 7) {
-			// empty space after comma
-			if (input[i] == ' ' || input[i] == '\t') {
-				input[i] = '\0';
+		if(strcmp(cmd, "loader") == 0){
+			if (flag == 1){
+				// empty space
+				if (input[i] == ' ' || input[i] == '\t') {
+					continue;
+				} else if(input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				} else {
+					arg1 = &input[i];
+					flag++;
+					continue;
+				} 
+			} 
+			else if (flag == 2){
+				// input arg1
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				} else if (input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				} 
 			}
-			else {
-				arg3 = &input[i];
-				flag++;
+			else if (flag == 3) {
+				// empty space
+				if (input[i] == ' ' || input[i] == '\t') {
+					continue;
+				} else if(input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				} else {
+					arg2 = &input[i];
+					flag++;
+					continue;
+				}
+			}
+			else if (flag == 4) {
+				// input arg2
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				} else if(input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				}
+			}
+			else if (flag == 5) {
+				// empty space
+				if (input[i] == ' ' || input[i] == '\t') {
+					continue;
+				} else if(input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				} else {
+					arg3 = &input[i];
+					flag++;
+					continue;
+				} 
+			}
+			else if (flag == 6) {
+				// input arg3
+				if (input[i] == ' ' || input[i] == '\t' || input[i] == '\n') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				}
+			}
+		} else {
+			
+			if (flag == 1){
+				// empty space
+				if (input[i] == ' ' || input[i] == '\t') {
+					continue;
+				}
+				else {
+					arg1 = &input[i];
+					flag++;
+					continue;
+				}
+			} 
+			else if (flag == 2){
+				// input arg1
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				} else if (input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				} else if (input[i] == ',') {
+					input[i] = '\0';
+					flag += 2;
+				}
+			}
+			else if (flag == 3) {
+				// empty space before comma
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+				}
+				else if (input[i] == ',') {
+					input[i] = '\0';
+					flag ++;
+					continue;
+				}
+				else {
+					wrong_input_flag = 1;
+					break;
+				}
+
+			}
+			else if (flag == 4) {
+				// empty space after comma
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+				}
+				else {
+					arg2 = &input[i];
+					flag++;
+					continue;
+				}
+			}
+			else if (flag == 5) {
+				// input arg2
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				} else if (input[i] == ',') {
+					input[i] = '\0';
+					flag += 2;
+					continue;
+				} else if(input[i] == '\n'){
+					input[i] = '\0';
+					break;
+				}
+			}
+			else if (flag == 6) {
+				// empty space before comma
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+				}
+				else if (input[i] == ',') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				}
+				else {
+					wrong_input_flag = 1;
+					break;
+				}
+			}
+			else if (flag == 7) {
+				// empty space after comma
+				if (input[i] == ' ' || input[i] == '\t') {
+					input[i] = '\0';
+				}
+				else {
+					arg3 = &input[i];
+					flag++;
+					continue;
+				}
+			}
+			else if (flag == 8) {
+				// input arg3
+				if (input[i] == ' ' || input[i] == '\t' || input[i] == '\n') {
+					input[i] = '\0';
+					flag++;
+					continue;
+				}
+				else if (input[i] == ',') {
+					input[i] = '\0';
+					flag += 2;
+					continue;
+				}
 			}
 		}
-		else if (flag == 8) {
-			// input arg3
-			if (input[i] == ' ' || input[i] == '\t' || input[i] == '\n') {
-				input[i] = '\0';
-				flag++;
-			}
-			else if (input[i] == ',') {
-				input[i] = '\0';
-				flag += 2;
-			}
-		}
+		
 	}
 	
+	printf("cmd: %s arg1: %s arg2: %s arg3: %s\n", cmd, arg1, arg2, arg3);
+
 	if(wrong_input_flag == 1){
 		// wrong command
 		printf("wrong command\n");
@@ -247,7 +355,7 @@ int processCmd(char* input){
 	} else if (strcmp(cmd, "e") == 0 || strcmp(cmd, "edit") == 0) {
 		// e[dit] address, data
 		if(arg1!=NULL && arg2!=NULL){
-			edit(atoi(arg1), (int)strtol(arg2, NULL, 16));
+			edit((int)strtol(arg1, NULL, 16), (int)strtol(arg2, NULL, 16));
 		}
 	} else if(strcmp(cmd, "f") == 0 || strcmp(cmd, "fill") == 0){
 		// f[ill] start, end, data
@@ -290,6 +398,33 @@ int processCmd(char* input){
 			printf("the address is between 0 ~ 2^20\n");
 			return 1;
 		}
+		return 0;
+	} else if (strcmp(cmd, "loader") == 0){
+		// loader [object filename1] [object filename2] [...]
+		if(safe_progaddr(progaddr) == -1){
+			printf("the address is between 0 ~ 2^20\n");
+			return 1;
+		}
+		object_lst = initList();
+		if(arg1 != NULL){
+			tmp_arg = (char*)calloc(sizeof(char), MAXLEN);
+			strcpy(tmp_arg, arg1);
+			appendList(object_lst, (void*)tmp_arg);
+		}
+		if(arg2 != NULL){
+			tmp_arg = (char*)calloc(sizeof(char), MAXLEN);
+			strcpy(tmp_arg, arg2);
+			appendList(object_lst, (void*)tmp_arg);
+		}
+		if(arg3 != NULL){
+			tmp_arg = (char*)calloc(sizeof(char), MAXLEN);
+			strcpy(tmp_arg, arg3);
+			appendList(object_lst, (void*)tmp_arg);
+		}
+		linkingLoader(object_lst);
+			// type_file(arg1);
+			// type_file(arg2);
+			// type_file(arg3);
 		return 0;
 	} else {
 		// wrong command
@@ -340,6 +475,95 @@ int loadOpcodelist(void){
 	
 	// close file stream.
 	fclose(fp_opcode);
+	return 0;
+}
+
+int linkingLoader(LinkedList* object_files){
+	int sym_addr = 0, cur_size = 0, cur_addr = progaddr, cur_scan_pos = 0, line_len = 0, cur_object_file = 0, prog_length[256] = {}, start_address[256] = {};
+	// int i, cur_object_file = 0, cur_scan_pos = 0, cur_size = 0, cur_addr = progaddr,
+		// sym_addr = 0, sym_addr = 0, line_len = 0, prog_length[256] = {}, start_address[256] = {}, symbol_address[256] = {}, cur_byte = 0, rec_start_addr = 0, rec_length = 0;
+	FILE *fp = NULL;
+	char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
+	// char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
+	// Instruction *hash_node = NULL;
+	Node *ptr = NULL;
+	LinkedList *symbol_history = initList();
+	struct ExternalSymbol *ES = NULL;
+
+	// PASS 1 OF THE LOADER
+	// Push every externally defined symbols to the ESTAB.
+	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
+		pstr = (char*)ptr -> data;
+		start_address[cur_object_file] = cur_addr;
+		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
+			printf("loader: please open .obj file.\n");
+			return -1;
+		}
+		fp = fopen(pstr, "r");
+		cur_size = -1;
+
+		if (fp == NULL){
+			printf("loader: cannot open %s.\n", pstr);
+			return -1;
+		}
+		while (fgets(line_buffer, sizeof(line_buffer), fp)) {
+			line_len = strlen(line_buffer);
+			line_buffer[line_len - 1] = ' ';
+			if (*line_buffer == 'H') {
+				ES = (ExternalSymbol *)malloc(sizeof(ExternalSymbol));
+				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_address + cur_object_file, &cur_size);
+				start_address[cur_object_file] += cur_addr;
+				prog_length[cur_object_file] = cur_size;
+				strcpy(ES->name, prog_name);
+				ES->address = cur_addr;
+				ES->length = cur_size;
+				ES->is_symbol = 0;
+				appendList(symbol_history, ES);
+			} else if (*line_buffer == 'D') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+					return -1;
+				}
+				for (cur_scan_pos = 1; cur_scan_pos < line_len; cur_scan_pos += 12) {	
+					ES = (ExternalSymbol *)malloc(sizeof(ExternalSymbol));
+					sym_name[0] = 0;
+					if (sscanf(line_buffer + cur_scan_pos, "%6s%6x", sym_name, &sym_addr) != 2) continue;
+					if (search_element_external_symbol_table((unsigned char*)sym_name) != -1){
+						printf("loader: repeated symbol %s is found.\n", sym_name);
+						return -1;
+					}
+					strcpy(ES->name, sym_name);
+					ES->address = sym_addr + cur_addr;
+					ES->length = 0;
+					ES->is_symbol = 1;
+					appendList(symbol_history, ES);
+				}
+			} else if (*line_buffer == 'R') { // Since this is pass 1, we ignore the reference list.
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+			} else if (*line_buffer == 'T') { // Since this is pass 1, we ignore the text record.
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+					// return -1;
+				}
+				// Since this is pass 1, we ignore the reference list.
+			} else if (*line_buffer == 'E') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+					// return -1;
+				}
+				break;
+			}
+			line_buffer[0] = 0;
+		}
+		cur_addr += cur_size;
+		cur_object_file++;
+
+		fclose(fp);
+	}
+	printExternalSymbolTable(symbol_history);
+	printf("%d\n", prog_length[0]);
 	return 0;
 }
 
@@ -1078,8 +1302,9 @@ int hexDumpWithStartEnd(int start, int end)
 
 		if ((cur_addr % 16) == 0) {
 			// don't print ASCII code for the zeroth line.
-			if (cur_addr != 0)
+			if (cur_addr != start){
 				printf(" ; %s\n", buff);
+			}
 
 			// output the offset
 			printf("  %05X ", cur_addr);
@@ -1150,6 +1375,41 @@ int fill(int start, int end, int data){
  * return: success
  * (0: insert success, 1: symbol already exist)
  */
+int insert_external_symbol_table(struct ExternalSymbol external_symbol){
+	// insert to symbol linked list
+	symbol_ctr ++;
+
+	// insert to symbol table
+	unsigned char *key, h;
+	struct ExternalSymbolRecord *temp;
+	key = (unsigned char*)external_symbol.name;
+
+	// skip it if inst already exist 
+	if (search_element_symbol_table(key) != -1)
+	{
+		return 1;
+	}
+	h = hash_function(key, HASH_TABLE_MAX);
+	temp = malloc(sizeof(struct ExternalSymbolRecord));
+	temp->data = external_symbol;
+	temp->link = external_symbol_table[h];
+	external_symbol_table[h] = temp;
+
+	// S = (ExternalSymbol *)realloc(S, sizeof(ExternalSymbol) * (symbol_ctr));
+	// strcpy(S[symbol_ctr-1].symbol, temp->data.symbol);
+	// S[symbol_ctr-1].loc = temp->data.loc;
+	return 0;
+}
+
+/*
+ * Function: insert_symbol_table
+ * 
+ * insert to symbol table
+ * 
+ * symbol: the symbol to insert on symbol table
+ * return: success
+ * (0: insert success, 1: symbol already exist)
+ */
 int insert_symbol_table(struct Symbol symbol){
 	// insert to symbol linked list
 	symbol_ctr ++;
@@ -1202,6 +1462,31 @@ int insert_hash_table(struct Inst inst)
 	temp->link = hash_table[h];
 	hash_table[h] = temp;
 	return 0;
+}
+
+/*
+ * Function: search_element_external_symbol_table
+ * 
+ * search position of element
+ * 
+ * key: symbol name
+ * return: position on symbol table or error(-1)
+ */
+int search_element_external_symbol_table(unsigned char * key)
+{
+	int h;
+	struct ExternalSymbolRecord *ptr;
+	h = hash_function(key, HASH_TABLE_MAX);
+	ptr = external_symbol_table[h];
+	while (ptr != NULL)
+	{
+		if (strcmp(ptr->data.name, (char *)key) == 0)
+		{
+			return h;
+		}
+		ptr = ptr->link;
+	}
+	return -1;
 }
 
 /*
@@ -1421,6 +1706,10 @@ int main(void) {
 	for (int count = 0; count <= HASH_TABLE_MAX - 1; count++)
 	{
 		hash_table[count] = NULL;
+	}
+	// init external symbol table
+	for (int count = 0; count <= HASH_TABLE_MAX - 1; count++){
+		external_symbol_table[count] = NULL;
 	}
 	if(loadOpcodelist() == -1){
 		return 0;

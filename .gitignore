@@ -4,6 +4,9 @@
 
 main
 *.out
+PL
+sp20131582_proj1
+
 
 .main.c.swo
 .bashrc

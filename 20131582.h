@@ -10,13 +10,13 @@
 /*
  * Constants and Macros.
  */
-#define _CRT_SECURE_NO_WARNINGS    // prevent compile error because of sprintf security alert 
-#define MEMSIZE		            (1 << 20)
-#define	MAX	                    100
-#define	MAXLEN		            80
-#define HASH_TABLE_MAX          20
-#define SYMBOL_TABLE_MAX        5
-
+#define _CRT_SECURE_NO_WARNINGS     // prevent compile error because of sprintf security alert 
+#define MEMSIZE		                (1 << 20)
+#define	MAX	                        100
+#define	MAXLEN		                80
+#define HASH_TABLE_MAX              20
+#define SYMBOL_TABLE_MAX            5
+#define EXTERNAL_SYMBOL_TABLE_MAX   10
 /*
  * Linked List Structure.
  */
@@ -75,6 +75,21 @@ typedef struct SymbolRecord {
         struct SymbolRecord *link;
 } SymbolRecord;
 
+/*
+ * External Symbol Structure.
+ */
+typedef struct ExternalSymbol {
+	char name[10];
+    int address;
+    int length;
+    int is_symbol;
+} ExternalSymbol;
+
+typedef struct ExternalSymbolRecord {
+        struct ExternalSymbol data;
+        struct ExternalSymbolRecord *link;
+} ExternalSymbolRecord;
+
 typedef struct Statement {
 	int loc;
 	char * label;
@@ -98,6 +113,7 @@ int hexDumpWithStart(int);
 int hexDumpWithStartEnd(int, int);
 int insert_symbol_table(struct Symbol);
 int insert_hash_table(struct Inst);
+int search_element_external_symbol_table(unsigned char*);
 int search_element_symbol_table(unsigned char*);
 int search_element_hash_table(unsigned char*);
 int get_opcode_by_key(unsigned char*);
@@ -110,15 +126,18 @@ int fill(int, int, int);
 int myCompare(const void*,const void*);
 int get_loc_by_symbol(unsigned char*);
 int safe_progaddr(int);
+int linkingLoader(LinkedList*);
 
 /*
  * Global variable.
  */
-struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
-struct HashRecord *hash_table[HASH_TABLE_MAX];
 struct Inst inst_record;
-struct LinkedList *history = NULL;
 struct Symbol * S = NULL;
+struct LinkedList *history = NULL;
+
+struct HashRecord *hash_table[HASH_TABLE_MAX];
+struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
+struct ExternalSymbolRecord *external_symbol_table[EXTERNAL_SYMBOL_TABLE_MAX];
 
 unsigned char addr[MEMSIZE] = { 0 };
 char program_name[10];
