@@ -111,6 +111,7 @@ int display_dir(void);
 int hexDump(int);
 int hexDumpWithStart(int);
 int hexDumpWithStartEnd(int, int);
+int insert_external_symbol_table(struct ExternalSymbol);
 int insert_symbol_table(struct Symbol);
 int insert_hash_table(struct Inst);
 int search_element_external_symbol_table(unsigned char*);

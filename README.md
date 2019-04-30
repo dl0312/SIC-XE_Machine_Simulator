@@ -41,3 +41,7 @@ sicsim>
 * assemble filename
 * type filename
 * symbol
+* progadder [address]
+* loader [object filename1] [object filename2] [...]
+* run
+* bp [address]
