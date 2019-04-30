@@ -63,11 +63,24 @@ void printHistory(LinkedList* history)
 void printExternalSymbolTable(LinkedList* estab)
 {
 	Node* ptr = NULL;
-	int cnt = 0;
+	int total_length = 0;
+	printf("control\t\tsymbol\t\taddress\t\tlength\n");
+	printf("section\t\tname\n");
+	printf("--------------------------------------------------------------\n");
 	for (ptr = estab -> head; ptr != NULL; ptr = ptr -> link) {
 		ExternalSymbol* es_data = ((ExternalSymbol*)(ptr->data));
-		printf("%d\tname: %s\taddress: %06X\tlength: %06X\tis symbol: %d\n", ++cnt, es_data->name, es_data->address, es_data->length, es_data->is_symbol);
+		if(es_data->is_symbol == 1){
+			// symbol
+			printf("\t\t%s\t\t%04X\n", es_data->name, es_data->address);
+		} else {
+			// control section
+			printf("%s\t\t\t\t%04X\t\t%04X\n", es_data->name, es_data->address, es_data->length);
+			total_length += es_data->length;
+		}
 	}
+	printf("--------------------------------------------------------------\n");
+	printf("\t\t\t\ttotal length\t%04X\n", total_length);
+
 }
 
 /*
@@ -371,7 +384,15 @@ int processCmd(char* input){
 	} else if (strcmp(cmd, "opcode") == 0){
 		if(arg1!=NULL){
 			// opcode mnemonic
-			printf("opcode is %02X\n", get_opcode_by_key((unsigned char*)arg1));
+			int opcode = get_opcode_by_key((unsigned char*)arg1);
+			if(opcode != -1){
+				printf("opcode is %02X\n", get_opcode_by_key((unsigned char*)arg1));
+				appendList(history, (void*)tmp_input);
+				return 0;
+			} else {
+				printf("Can't find %s in opcodelist\n", arg1);
+				return 1;
+			}
 		}
 	} else if (strcmp(cmd, "opcodelist") == 0) {
 		// opcodelist
@@ -393,12 +414,19 @@ int processCmd(char* input){
 		print_symbol_table();
 	} else if (strcmp(cmd, "progaddr") == 0){
 		// progaddr [address]
-		progaddr =  (int)strtol(arg1, NULL, 16);
-		if(safe_progaddr(progaddr) == -1){
-			printf("the address is between 0 ~ 2^20\n");
+		if(arg1 != NULL){
+			progaddr =  (int)strtol(arg1, NULL, 16);
+			if(safe_progaddr(progaddr) == -1){
+				printf("the address should be between 0 ~ 2^20\n");
+				return 1;
+			} else {
+				appendList(history, (void*)tmp_input);
+				return 0;
+			}
+		} else {
+			printf("address is missing\n");
 			return 1;
 		}
-		return 0;
 	} else if (strcmp(cmd, "loader") == 0){
 		// loader [object filename1] [object filename2] [...]
 		if(safe_progaddr(progaddr) == -1){
@@ -479,22 +507,27 @@ int loadOpcodelist(void){
 }
 
 int linkingLoader(LinkedList* object_files){
-	int sym_addr = 0, cur_size = 0, cur_addr = progaddr, cur_scan_pos = 0, line_len = 0, cur_object_file = 0, prog_length[256] = {}, start_address[256] = {};
-	// int i, cur_object_file = 0, cur_scan_pos = 0, cur_size = 0, cur_addr = progaddr,
-		// sym_addr = 0, sym_addr = 0, line_len = 0, prog_length[256] = {}, start_address[256] = {}, symbol_address[256] = {}, cur_byte = 0, rec_start_addr = 0, rec_length = 0;
+	int sym_addr = 0;
+	int cur_size = 0;
+	int cur_addr = progaddr;
+	int cur_scan_pos = 0;
+	int line_len = 0;
+	int cur_object_file = 0;
+	int prog_length[256] = {};
+	int start_addr_array[256] = {};
+	int sym_addr_array[256] = {};
+	int cur_byte = 0;
+	int rec_start_addr_array = 0;
+	int rec_length = 0;
 	FILE *fp = NULL;
 	char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
-	// char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
-	// Instruction *hash_node = NULL;
 	Node *ptr = NULL;
 	LinkedList *symbol_history = initList();
 	struct ExternalSymbol *ES = NULL;
 
-	// PASS 1 OF THE LOADER
-	// Push every externally defined symbols to the ESTAB.
 	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
 		pstr = (char*)ptr -> data;
-		start_address[cur_object_file] = cur_addr;
+		start_addr_array[cur_object_file] = cur_addr;
 		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
 			printf("loader: please open .obj file.\n");
 			return -1;
@@ -511,13 +544,17 @@ int linkingLoader(LinkedList* object_files){
 			line_buffer[line_len - 1] = ' ';
 			if (*line_buffer == 'H') {
 				ES = (ExternalSymbol *)malloc(sizeof(ExternalSymbol));
-				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_address + cur_object_file, &cur_size);
-				start_address[cur_object_file] += cur_addr;
+				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_object_file, &cur_size);
+				start_addr_array[cur_object_file] += cur_addr;
 				prog_length[cur_object_file] = cur_size;
 				strcpy(ES->name, prog_name);
 				ES->address = cur_addr;
 				ES->length = cur_size;
 				ES->is_symbol = 0;
+				if(insert_external_symbol_table(*ES)){
+					printf("external symbol already exist");
+					return -1;
+				}
 				appendList(symbol_history, ES);
 			} else if (*line_buffer == 'D') {
 				if (cur_size < 0){
@@ -536,6 +573,10 @@ int linkingLoader(LinkedList* object_files){
 					ES->address = sym_addr + cur_addr;
 					ES->length = 0;
 					ES->is_symbol = 1;
+					if(insert_external_symbol_table(*ES)){
+						printf("external symbol already exist");
+						return -1;
+					}
 					appendList(symbol_history, ES);
 				}
 			} else if (*line_buffer == 'R') { // Since this is pass 1, we ignore the reference list.
@@ -562,6 +603,88 @@ int linkingLoader(LinkedList* object_files){
 
 		fclose(fp);
 	}
+
+	cur_addr = progaddr;
+	cur_object_file = 0;
+
+	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
+		pstr = (char*)ptr -> data;
+		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
+			printf("loader: please open .obj file.\n");
+		}
+
+		fp = fopen(pstr, "r");
+		cur_size = -1;
+
+		if (fp == NULL){
+			printf("loader: cannot open %s.\n", pstr);
+		}
+
+		while (fgets(line_buffer, sizeof(line_buffer), fp)) {
+			line_len = strlen(line_buffer);
+			if (*line_buffer == 'H') {
+				sscanf(line_buffer + 1, "%6s", prog_name);
+				sym_addr_array[1] = start_addr_array[cur_object_file];
+				cur_addr = start_addr_array[cur_object_file];
+				cur_size = prog_length[cur_object_file];
+			} else if (*line_buffer == 'D') { // Since this is already handled in pass1, ignore this.
+			} else if (*line_buffer == 'R') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+				for (cur_scan_pos = 1; cur_scan_pos < line_len; cur_scan_pos += 8) {
+					if (sscanf(line_buffer + cur_scan_pos, "%2x%6s", &sym_addr, sym_name) != 2) continue;
+					if (search_element_external_symbol_table((unsigned char*)sym_name) == -1){
+						printf("loader: symbol %s is referenced but not found.\n", sym_name);
+						return -1;
+					}
+					sym_addr_array[sym_addr] = search_element_external_symbol_table((unsigned char*)sym_name);
+					printf("External Symbol Address: %d\n", sym_addr_array[sym_addr]);
+				}
+			} else if (*line_buffer == 'T') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+				sscanf(line_buffer + 1, "%6x%2x", &rec_start_addr_array, &rec_length);
+				for (cur_scan_pos = 9; cur_scan_pos < line_len; cur_scan_pos+=2) {
+					cur_byte = 0;
+					sscanf(line_buffer + cur_scan_pos, "%2x", &cur_byte);
+					addr[cur_addr + rec_start_addr_array + ((cur_scan_pos - 9) / 2)] = (unsigned char)(cur_byte & 0xFF);
+				}
+			} else if (*line_buffer == 'M') {
+				sscanf(line_buffer + 1, "%6x%2x%1s%2x", &rec_start_addr_array, &rec_length, sym_name, &sym_addr);
+				rec_start_addr_array += cur_addr;
+				cur_byte = 0;
+				if (rec_length == 5) {
+					cur_byte = (((unsigned int)(addr[rec_start_addr_array + 0] & 0x0F)) << 16) | (((unsigned int)(addr[rec_start_addr_array + 1] & 0xFF)) << 8) | (((unsigned int)(addr[rec_start_addr_array + 2] & 0xFF)) << 0);
+					cur_byte += (*sym_name == '+' ? sym_addr_array[sym_addr] : -sym_addr_array[sym_addr]);
+					cur_byte &= 0x0FFFFF;
+					addr[rec_start_addr_array + 0] = (unsigned char)((unsigned int)addr[rec_start_addr_array + 0] & 0xF0) | ((unsigned int)(cur_byte >> 16) & 0x0F);
+					addr[rec_start_addr_array + 1] = (cur_byte >> 8) & 0xFF;
+					addr[rec_start_addr_array + 2] = (cur_byte >> 0) & 0xFF;
+				} else { // case rec_length = 6
+					cur_byte = (((unsigned int)(addr[rec_start_addr_array + 0] & 0xFF)) << 16) | (((unsigned int)(addr[rec_start_addr_array + 1] & 0xFF)) << 8) | (((unsigned int)(addr[rec_start_addr_array + 2] & 0xFF)) << 0);
+					cur_byte += (*sym_name == '+' ? sym_addr_array[sym_addr] : -sym_addr_array[sym_addr]);
+					cur_byte &= 0xFFFFFF;
+					addr[rec_start_addr_array + 0] = (cur_byte >> 16) & 0xFF;
+					addr[rec_start_addr_array + 1] = (cur_byte >> 8) & 0xFF;
+					addr[rec_start_addr_array + 2] = (cur_byte >> 0) & 0xFF;
+				}
+			} else if (*line_buffer == 'E') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+				break;
+			}
+			line_buffer[0] = 0;
+		}
+
+		cur_addr += cur_size;
+		cur_object_file++;
+		fclose(fp);
+
+	}
+	
 	printExternalSymbolTable(symbol_history);
 	printf("%d\n", prog_length[0]);
 	return 0;
@@ -1390,14 +1513,11 @@ int insert_external_symbol_table(struct ExternalSymbol external_symbol){
 		return 1;
 	}
 	h = hash_function(key, HASH_TABLE_MAX);
+	printf("hash: %d", h);
 	temp = malloc(sizeof(struct ExternalSymbolRecord));
 	temp->data = external_symbol;
 	temp->link = external_symbol_table[h];
 	external_symbol_table[h] = temp;
-
-	// S = (ExternalSymbol *)realloc(S, sizeof(ExternalSymbol) * (symbol_ctr));
-	// strcpy(S[symbol_ctr-1].symbol, temp->data.symbol);
-	// S[symbol_ctr-1].loc = temp->data.loc;
 	return 0;
 }
 
@@ -1482,7 +1602,7 @@ int search_element_external_symbol_table(unsigned char * key)
 	{
 		if (strcmp(ptr->data.name, (char *)key) == 0)
 		{
-			return h;
+			return ptr->data.address;
 		}
 		ptr = ptr->link;
 	}
