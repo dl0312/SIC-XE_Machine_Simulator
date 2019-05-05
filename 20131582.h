@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <dirent.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -17,6 +18,9 @@
 #define HASH_TABLE_MAX              20
 #define SYMBOL_TABLE_MAX            5
 #define EXTERNAL_SYMBOL_TABLE_MAX   10
+#define PC                          regi_ary[8]
+#define BP_FUNC(X) if (is_break_point && PC != last_bp) { printRegisters(regi_ary); last_bp = PC; printf("run: breakpoint is triggered : %06X.\n", PC); return (X); }
+
 /*
  * Linked List Structure.
  */
@@ -56,6 +60,8 @@ typedef struct Inst {
     char mnemonic[10];
     char format[10];
 } Inst;
+
+
 
 typedef struct HashRecord {
     struct Inst data;
@@ -128,6 +134,17 @@ int myCompare(const void*,const void*);
 int get_loc_by_symbol(unsigned char*);
 int safe_progaddr(int);
 int linkingLoader(LinkedList*);
+int run(void);
+int handleBreakPoint(char*);
+int getRegiNum(char*);
+int checkRegiNum(int);
+void printRegisters(int*);
+int printBreakPoint(void);
+int addressBreakPoint(int);
+int clearBreakPoint(void);
+int compareRegisters(int , int);
+int check_opcode(int);
+Inst* get_inst_by_opcode(int);
 
 /*
  * Global variable.
@@ -141,6 +158,7 @@ struct SymbolRecord *symbol_table[SYMBOL_TABLE_MAX];
 struct ExternalSymbolRecord *external_symbol_table[EXTERNAL_SYMBOL_TABLE_MAX];
 
 unsigned char addr[MEMSIZE] = { 0 };
+unsigned char bp[MEMSIZE] = { 0 };
 char program_name[10];
 
 int * modified_addr_ary;
@@ -159,6 +177,9 @@ int last_addr = 0;
 int progaddr = 0x00;
 int object_length = 0;
 int text_record_length_ary[100];
+int last_bp = -1;
+int regi_ary[10];
+int print_mode = 1;
 
 int symbol_ctr;
 int starting_address;

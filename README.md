@@ -3,7 +3,7 @@
 ## 👨‍💻 Author
 [Geon Lee](https://github.com/)
 
-## 🤔 What is **SIC/XE** Machhine?
+## 🤔 What is **SIC/XE** Machine?
 * [SIC Machine](https://en.wikipedia.org/wiki/Simplified_Instructional_Computer)'s with E**x**tra **E**quipment 
 * you can read the article about [SIC/XE](https://en.wikipedia.org/wiki/SIC/XE) on wikipedia
 

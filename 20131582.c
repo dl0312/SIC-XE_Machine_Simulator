@@ -308,7 +308,7 @@ int processCmd(char* input){
 		
 	}
 	
-	printf("cmd: %s arg1: %s arg2: %s arg3: %s\n", cmd, arg1, arg2, arg3);
+	// printf("cmd: %s arg1: %s arg2: %s arg3: %s\n", cmd, arg1, arg2, arg3);
 
 	if(wrong_input_flag == 1){
 		// wrong command
@@ -407,7 +407,10 @@ int processCmd(char* input){
 	} else if (strcmp(cmd, "assemble") == 0){
 		// assemble asm file
 		if(arg1!=NULL){
-			assemble_file(arg1);
+			if(assemble_file(arg1) == 0){
+				char* filename = strtok(arg1, ".");
+				printf("output file : [%s.lst], [%s.obj]", filename, filename);
+			};
 		}
 	} else if (strcmp(cmd, "symbol") == 0){
 		// assemble asm file
@@ -454,6 +457,23 @@ int processCmd(char* input){
 			// type_file(arg2);
 			// type_file(arg3);
 		return 0;
+	} else if (strcmp(cmd, "run") == 0){
+		int tmp = run();
+		if(tmp != -1){
+			progaddr = tmp;
+		} else {
+			return 1;
+		}
+	} else if (strcmp(cmd, "bp") == 0){
+		if(arg1 != NULL){
+			if(strcmp(arg1, "clear") == 0){
+				clearBreakPoint();
+			} else {
+				addressBreakPoint((int)strtol(arg1, NULL, 16));
+			}
+		} else {
+			printBreakPoint();
+		}
 	} else {
 		// wrong command
 		printf("wrong command\n");
@@ -463,6 +483,21 @@ int processCmd(char* input){
 	// create node on history linked list
 	appendList(history, (void*)tmp_input);
 	return 0;
+}
+
+int check_opcode(int opcode) {
+	int right_opcode_ary[20] = {0xB4,0x28,0xA0,0x3C,0x30,0x38,0x48,0x00,0x68,0x50,
+	0x74,0xD8,0x4C,0x0C,0x54,0x14,0x10,0xE0,0xB8,0xDC};
+	for(int i = 0; i < sizeof(right_opcode_ary) / sizeof(int) ; i++){
+		if(right_opcode_ary[i] == opcode){
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int compareRegisters(int reg1, int reg2) {
+	return regi_ary[reg1] < regi_ary[reg2] ? -1 : regi_ary[reg1] == regi_ary[reg2] ? 0 : 1;
 }
 
 /*
@@ -506,28 +541,303 @@ int loadOpcodelist(void){
 	return 0;
 }
 
+/*
+ * Function: checkRegiNum
+ * 
+ * check if regi num is right
+ * 
+ * return: Success 
+ * (1: success, 0: failure) 
+ */
+int checkRegiNum(int reg) {
+	return reg < 10 && 0 <= reg && reg != 7;
+}
+
+/*
+ * Function: getRegiNum
+ * 
+ * get number of register
+ * 
+ * return: regi data
+ */
+int getRegiNum(char *register_name) {
+	char *reg[] = {"A", "X", "L", "B", "S", "T", "F", "PC", "SW"};
+	int reg_num[] = {0, 1, 2, 3, 4, 5, 6, 8, 9}, i;
+	for (i = 0; i < 9; i++)
+		if (!strcmp(reg[i], register_name)) return reg_num[i];
+	printf("run: undefined register %s is found.\n", register_name);
+	return -1;
+}
+
+/*
+ * Function: printRegisters
+ * 
+ * print registers
+ * 
+ */
+void printRegisters(int *registers) {
+	char *reg[] = {"A", "X", "L", "PC", "B", "S", "T"};
+	for (int i = 0; i < 7; i++){
+		if(i%2==0 && i != 6){
+			printf("  %-2s: %06X\t", reg[i], registers[getRegiNum(reg[i])] & 0xFFFFFF);
+		} else {
+			printf("  %-2s: %06X\n", reg[i], registers[getRegiNum(reg[i])] & 0xFFFFFF);
+		}
+	}
+}
+
+/*
+ * Function: printBreakPoint
+ * 
+ * print breakpoint
+ * 
+ * return: Success 
+ * (0: success) 
+ */
+int printBreakPoint(void){
+	printf("\tbreakpoints\n");
+	printf("\t-----------\n");
+	for (int i = 0; i < MEMSIZE; i++) {
+		if (bp[i])
+			printf("\t%04X\n", i);
+	}
+	return 0;
+}
+
+/*
+ * Function: addressBreakPoint
+ * 
+ * bp [address]
+ * 
+ * return: Success 
+ * (0: success) 
+ */
+int addressBreakPoint(int addr){
+	if (0 > addr || addr >= MEMSIZE){
+		printf("bp: please input valid hexadecimal number less than 0x100000\n");
+	}
+	bp[addr] = 1;
+	printf("\t[ok] create breakpoint %04X\n", addr);
+	return 0;
+}
+
+/*
+ * Function: clearBreakPoint
+ * 
+ * clear breakpoint
+ * 
+ * return: Success 
+ * (0: success) 
+ */
+int clearBreakPoint(void){
+	for (int i = 0; i < MEMSIZE; i++){
+		bp[i] = 0;
+	}
+	printf("\t[ok] clear all breakpoints\n");
+	return 0;
+}
+
+/*
+ * Function: run
+ * 
+ * run the program that allocated on addresses
+ * 
+ * return: Success 
+ * (0: success, -1: failure) 
+ */
+int run(void)
+{
+	int is_break_point = 0, opcode = 0, is_extended = 0, reg1 = 0, reg2 = 0, pc_delta = 0, cc = 0, target_value = 0, target_address = 0;
+	Inst *inst = NULL;
+	if (last_bp == -1) regi_ary[getRegiNum("L")] = 0xFFFFFF;
+
+	PC = progaddr;
+	while (PC < MEMSIZE && PC >= 0) {
+		is_break_point = bp[PC];
+		pc_delta = 0;
+		opcode = addr[PC] & (~3);
+		if ((inst = get_inst_by_opcode(opcode)) != NULL && check_opcode(inst -> opcode)) {
+		
+			if (strcmp(inst->format, "3/4") == 0) {
+				is_extended = ((addr[PC + 1] & 0xF0) >> 4) & 1;
+				if ((addr[PC] & 3) == 0) {
+					pc_delta = 1;
+					PC += 1;
+					continue;
+				} else if (is_extended) { 
+					is_break_point = bp[PC] | bp[PC + 1] | bp[PC + 2] | bp[PC + 3];
+					BP_FUNC(PC);
+					target_address =(((unsigned int)addr[PC + 1] & 0x0F) << 16) | (((unsigned int)addr[PC + 2]) << 8) | (((unsigned int)addr[PC + 3]) << 0);
+					target_address &= 0xFFFFFF;
+					target_value = (((unsigned int)addr[target_address + 0]) << 16) | (((unsigned int)addr[target_address + 1]) << 8) | (((unsigned int)addr[target_address + 2]) << 0);
+					if ((addr[PC + 0] & 3) == 1) target_value = target_address;
+					if ((addr[PC + 0] & 3) == 2) {
+						target_address = target_value;
+						if (0 <= target_value && target_value < MEMSIZE)
+							target_value = (((unsigned int)addr[target_value + 0]) << 16) | (((unsigned int)addr[target_value + 1]) << 8) | (((unsigned int)addr[target_value + 2]) << 0);
+					}
+					pc_delta = 4;
+				} else { 
+					pc_delta = 3;
+					is_break_point = bp[PC] | bp[PC + 1] | bp[PC + 2];
+					BP_FUNC(PC);
+					target_address = (((unsigned int)addr[PC + 1] & 0x0F) << 8) | (((unsigned int)addr[PC + 2]) << 0);
+					if (((addr[PC + 1] & 0xF0) >> 4) & (1 << 3)) target_address += regi_ary[getRegiNum("X")];
+					if (((addr[PC + 1] & 0xF0) >> 4) & (1 << 2)) target_address += regi_ary[getRegiNum("B")];
+					if (((addr[PC + 1] & 0xF0) >> 4) & (1 << 1)) target_address = ((target_address > 0x7FF ? (0xFFF000 | target_address) : target_address) + regi_ary[getRegiNum("PC")] + pc_delta);
+					target_address &= 0xFFFFFF;
+					target_value = (((unsigned int)addr[target_address + 0]) << 16) | (((unsigned int)addr[target_address + 1]) << 8) | (((unsigned int)addr[target_address + 2]) << 0);
+					if ((addr[PC + 0] & 3) == 1) target_value = target_address;
+					if ((addr[PC + 0] & 3) == 2) {
+						target_address = target_value;
+						if (0 <= target_value && target_value < MEMSIZE)
+							target_value = (((unsigned int)addr[target_value + 0]) << 16) | (((unsigned int)addr[target_value + 1]) << 8) | (((unsigned int)addr[target_value + 2]) << 0);
+					}
+				}
+			} else if (strcmp(inst->format,"2") == 0) {
+				is_break_point = bp[PC] | bp[PC + 1];
+				BP_FUNC(PC);
+				reg1 = (addr[PC + 1] & 0xF0) >> 4;
+				reg2 = (addr[PC + 1] & 0x0F) >> 0;
+				if (!strcmp(inst->mnemonic, "CLEAR")) {
+					if (checkRegiNum(reg1)) { 
+						pc_delta = 2;
+					} else {
+						pc_delta = 1;
+						continue;
+					}
+				} else { 
+					if (checkRegiNum(reg1) && checkRegiNum(reg2)) {
+						pc_delta = 2; // this is valid format 2 instruction.
+					} else { // invalid operands.
+						pc_delta = 1;
+						continue;
+					}
+				}
+			} else {
+				is_break_point = bp[PC];
+				BP_FUNC(PC);
+				pc_delta = 1;
+			}
+			BP_FUNC(PC);
+			switch (opcode) {
+				case 0xB4://clear(2)
+					regi_ary[reg1] = 0;
+					break;
+				case 0x28://COMP;
+					reg2 = regi_ary[getRegiNum("X")];
+					regi_ary[getRegiNum("X")] = target_value;
+					cc = compareRegisters(getRegiNum("A"), getRegiNum("X"));
+					regi_ary[getRegiNum("X")] = reg2;
+					break;
+				case 0xA0://COMPR(2)
+					cc = compareRegisters(reg1, reg2);
+					break;
+				case 0x3C://J
+					pc_delta = target_address - PC;
+					break;
+				case 0x30://JEQ
+					if (cc != 0) break;
+					pc_delta = target_address - PC;
+					break;
+				case 0x38://JLT
+					if (cc != -1) break;
+					pc_delta = target_address - PC;
+					 break;
+				case 0x48://JSUB
+					regi_ary[getRegiNum("L")] = PC + pc_delta;
+					pc_delta = target_address - PC;
+					break;
+				case 0x00://LDA
+					regi_ary[getRegiNum("A")] = target_value;
+					break;
+				case 0x68://LDB
+					regi_ary[getRegiNum("B")] = target_value;
+					break;
+				case 0x50://LDCH
+					regi_ary[getRegiNum("A")] = (regi_ary[getRegiNum("A")] & 0xFFFF00) | (((target_value & 0xFF0000) >> 16) & 0xFF);
+					break;
+				case 0x74://LDT
+					regi_ary[getRegiNum("T")] = target_value;
+					break;
+				case 0xD8://RD
+					cc = 1;
+					break;
+				case 0x4C://RSUB
+					pc_delta = regi_ary[getRegiNum("L")] - PC;
+					break;
+				case 0x0C://STA
+					addr[target_address + 0] = (regi_ary[getRegiNum("A")] >> 16) & 0xFF;
+					addr[target_address + 1] = (regi_ary[getRegiNum("A")] >> 8) & 0xFF;
+					addr[target_address + 2] = (regi_ary[getRegiNum("A")] >> 0) & 0xFF;
+					break;
+				case 0x54://STCH
+					addr[target_address + 0] = (regi_ary[getRegiNum("A")] >> 0) & 0xFF;
+					break;
+				case 0x14://STL
+					addr[target_address + 0] = (regi_ary[getRegiNum("L")] >> 16) & 0xFF;
+					addr[target_address + 1] = (regi_ary[getRegiNum("L")] >> 8) & 0xFF;
+					addr[target_address + 2] = (regi_ary[getRegiNum("L")] >> 0) & 0xFF;
+					break;
+				case 0x10://STX
+					addr[target_address + 0] = (regi_ary[getRegiNum("X")] >> 16) & 0xFF;
+					addr[target_address + 1] = (regi_ary[getRegiNum("X")] >> 8) & 0xFF;
+					addr[target_address + 2] = (regi_ary[getRegiNum("X")] >> 0) & 0xFF;
+					break;
+				case 0xE0://TD
+					cc = 1;
+					break;
+				case 0xB8://TIXR
+					regi_ary[getRegiNum("X")] += 1;
+					cc = compareRegisters(getRegiNum("X"), reg1);
+					break;
+				case 0xDC://WD
+					break;
+			}
+		} else { // not an instruction.
+			PC += 1;
+			continue;
+		}
+		PC += pc_delta;
+	}
+
+	last_bp = -1;
+	printRegisters(regi_ary);
+	printf("End program.\n");
+	return PC;
+}
+
+/*
+ * Function: linkingLoader
+ * 
+ * Link multiple object files and load it
+ * 
+ * return: Success 
+ * (0: success, -1: failure) 
+ */
 int linkingLoader(LinkedList* object_files){
 	int sym_addr = 0;
 	int cur_size = 0;
 	int cur_addr = progaddr;
 	int cur_scan_pos = 0;
 	int line_len = 0;
-	int cur_object_file = 0;
-	int prog_length[256] = {};
-	int start_addr_array[256] = {};
-	int sym_addr_array[256] = {};
+	int cur_obj = 0;
+	int prog_length[1 << 8] = {};
+	int start_addr_array[1 << 8] = {};
+	int sym_addr_array[1 << 8] = {};
 	int cur_byte = 0;
 	int rec_start_addr_array = 0;
 	int rec_length = 0;
+
 	FILE *fp = NULL;
 	char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
 	Node *ptr = NULL;
 	LinkedList *symbol_history = initList();
 	struct ExternalSymbol *ES = NULL;
 
-	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
+	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link){
 		pstr = (char*)ptr -> data;
-		start_addr_array[cur_object_file] = cur_addr;
+		start_addr_array[cur_obj] = cur_addr;
 		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
 			printf("loader: please open .obj file.\n");
 			return -1;
@@ -539,14 +849,14 @@ int linkingLoader(LinkedList* object_files){
 			printf("loader: cannot open %s.\n", pstr);
 			return -1;
 		}
-		while (fgets(line_buffer, sizeof(line_buffer), fp)) {
+		while (fgets(line_buffer, sizeof(line_buffer), fp)){
 			line_len = strlen(line_buffer);
 			line_buffer[line_len - 1] = ' ';
 			if (*line_buffer == 'H') {
 				ES = (ExternalSymbol *)malloc(sizeof(ExternalSymbol));
-				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_object_file, &cur_size);
-				start_addr_array[cur_object_file] += cur_addr;
-				prog_length[cur_object_file] = cur_size;
+				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_obj, &cur_size);
+				start_addr_array[cur_obj] += cur_addr;
+				prog_length[cur_obj] = cur_size;
 				strcpy(ES->name, prog_name);
 				ES->address = cur_addr;
 				ES->length = cur_size;
@@ -579,33 +889,30 @@ int linkingLoader(LinkedList* object_files){
 					}
 					appendList(symbol_history, ES);
 				}
-			} else if (*line_buffer == 'R') { // Since this is pass 1, we ignore the reference list.
+			} else if (*line_buffer == 'R') {
 				if (cur_size < 0){
 					printf("loader: the file is not a valid object file.\n");
 				}
-			} else if (*line_buffer == 'T') { // Since this is pass 1, we ignore the text record.
+			} else if (*line_buffer == 'T') { 
 				if (cur_size < 0){
 					printf("loader: the file is not a valid object file.\n");
-					// return -1;
 				}
-				// Since this is pass 1, we ignore the reference list.
 			} else if (*line_buffer == 'E') {
 				if (cur_size < 0){
 					printf("loader: the file is not a valid object file.\n");
-					// return -1;
 				}
 				break;
 			}
 			line_buffer[0] = 0;
 		}
 		cur_addr += cur_size;
-		cur_object_file++;
+		cur_obj++;
 
 		fclose(fp);
 	}
 
 	cur_addr = progaddr;
-	cur_object_file = 0;
+	cur_obj = 0;
 
 	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
 		pstr = (char*)ptr -> data;
@@ -623,12 +930,13 @@ int linkingLoader(LinkedList* object_files){
 		while (fgets(line_buffer, sizeof(line_buffer), fp)) {
 			line_len = strlen(line_buffer);
 			if (*line_buffer == 'H') {
+				// H Record
 				sscanf(line_buffer + 1, "%6s", prog_name);
-				sym_addr_array[1] = start_addr_array[cur_object_file];
-				cur_addr = start_addr_array[cur_object_file];
-				cur_size = prog_length[cur_object_file];
-			} else if (*line_buffer == 'D') { // Since this is already handled in pass1, ignore this.
+				sym_addr_array[1] = start_addr_array[cur_obj];
+				cur_addr = start_addr_array[cur_obj];
+				cur_size = prog_length[cur_obj];
 			} else if (*line_buffer == 'R') {
+				// R Record
 				if (cur_size < 0){
 					printf("loader: the file is not a valid object file.\n");
 				}
@@ -639,9 +947,9 @@ int linkingLoader(LinkedList* object_files){
 						return -1;
 					}
 					sym_addr_array[sym_addr] = search_element_external_symbol_table((unsigned char*)sym_name);
-					printf("External Symbol Address: %d\n", sym_addr_array[sym_addr]);
 				}
 			} else if (*line_buffer == 'T') {
+				// T Record
 				if (cur_size < 0){
 					printf("loader: the file is not a valid object file.\n");
 				}
@@ -652,6 +960,7 @@ int linkingLoader(LinkedList* object_files){
 					addr[cur_addr + rec_start_addr_array + ((cur_scan_pos - 9) / 2)] = (unsigned char)(cur_byte & 0xFF);
 				}
 			} else if (*line_buffer == 'M') {
+				// M Record
 				sscanf(line_buffer + 1, "%6x%2x%1s%2x", &rec_start_addr_array, &rec_length, sym_name, &sym_addr);
 				rec_start_addr_array += cur_addr;
 				cur_byte = 0;
@@ -662,7 +971,7 @@ int linkingLoader(LinkedList* object_files){
 					addr[rec_start_addr_array + 0] = (unsigned char)((unsigned int)addr[rec_start_addr_array + 0] & 0xF0) | ((unsigned int)(cur_byte >> 16) & 0x0F);
 					addr[rec_start_addr_array + 1] = (cur_byte >> 8) & 0xFF;
 					addr[rec_start_addr_array + 2] = (cur_byte >> 0) & 0xFF;
-				} else { // case rec_length = 6
+				} else {
 					cur_byte = (((unsigned int)(addr[rec_start_addr_array + 0] & 0xFF)) << 16) | (((unsigned int)(addr[rec_start_addr_array + 1] & 0xFF)) << 8) | (((unsigned int)(addr[rec_start_addr_array + 2] & 0xFF)) << 0);
 					cur_byte += (*sym_name == '+' ? sym_addr_array[sym_addr] : -sym_addr_array[sym_addr]);
 					cur_byte &= 0xFFFFFF;
@@ -671,6 +980,7 @@ int linkingLoader(LinkedList* object_files){
 					addr[rec_start_addr_array + 2] = (cur_byte >> 0) & 0xFF;
 				}
 			} else if (*line_buffer == 'E') {
+				// E Record
 				if (cur_size < 0){
 					printf("loader: the file is not a valid object file.\n");
 				}
@@ -678,15 +988,12 @@ int linkingLoader(LinkedList* object_files){
 			}
 			line_buffer[0] = 0;
 		}
-
 		cur_addr += cur_size;
-		cur_object_file++;
+		cur_obj++;
 		fclose(fp);
-
 	}
 	
 	printExternalSymbolTable(symbol_history);
-	printf("%d\n", prog_length[0]);
 	return 0;
 }
 
@@ -711,9 +1018,14 @@ int assemble_file(char * filename){
 	struct Record *record = NULL;
 	symbol_ctr = 0;
 
+	char* filename_without_extention = strtok(filename, ".");
+	char* list_file = ".lst";
+	strcat(filename_without_extention, list_file);
+	char* obj_file = ".obj";
+	strcat(filename_without_extention, obj_file);
 	/* Open assembler file */
-	fp_lst = fopen("20131582.lst", "w");
-	fp_obj = fopen("20131582.obj", "w");
+	fp_lst = fopen(list_file, "w");
+	fp_obj = fopen(obj_file, "w");
 	record_list = initList();
 
 	/* pass 1,2 of assembler */
@@ -1420,7 +1732,7 @@ int hexDumpWithStartEnd(int start, int end)
 	
 	}
 	// process every byte in the data
-	for (cur_addr = start; cur_addr <= end; cur_addr++) {
+	for (cur_addr = start; cur_addr < end; cur_addr++) {
 		// new line
 
 		if ((cur_addr % 16) == 0) {
@@ -1446,7 +1758,7 @@ int hexDumpWithStartEnd(int start, int end)
 
 		buff[(cur_addr % 16) + 1] = '\0';
 	}
-	for(int j = end%16 +1; j < 16; j++){
+	for(int j = end%16; j < 16; j++){
 		buff[j%16] = '.';
 		printf("   ");
 	}	
@@ -1513,7 +1825,6 @@ int insert_external_symbol_table(struct ExternalSymbol external_symbol){
 		return 1;
 	}
 	h = hash_function(key, HASH_TABLE_MAX);
-	printf("hash: %d", h);
 	temp = malloc(sizeof(struct ExternalSymbolRecord));
 	temp->data = external_symbol;
 	temp->link = external_symbol_table[h];
@@ -1681,6 +1992,21 @@ int get_loc_by_symbol(unsigned char * key){
 	return -1;
 }
 
+Inst* get_inst_by_opcode(int opcode){
+	struct HashRecord *ptr;
+	for(int h=0; h < HASH_TABLE_MAX ; h++){
+		ptr = hash_table[h];
+		while (ptr != NULL)
+		{
+			if (ptr->data.opcode == opcode)
+			{
+				return &(ptr->data);
+			}
+			ptr = ptr->link;
+		}
+	}
+	return NULL;
+}
 /*
  * Function: get_loc_by_symbol
  * 
