@@ -821,7 +821,6 @@ int linkingLoader(LinkedList* object_files){
 	int cur_addr = progaddr;
 	int cur_scan_pos = 0;
 	int line_len = 0;
-<<<<<<< HEAD
 	int cur_obj = 0;
 	int prog_length[1 << 8] = {};
 	int start_addr_array[1 << 8] = {};
@@ -829,31 +828,14 @@ int linkingLoader(LinkedList* object_files){
 	int cur_byte = 0;
 	int rec_start_addr_array = 0;
 	int rec_length = 0;
-
-=======
-	int cur_object_file = 0;
-	int prog_length[256] = {};
-	int start_addr_array[256] = {};
-	int sym_addr_array[256] = {};
-	int cur_byte = 0;
-	int rec_start_addr_array = 0;
-	int rec_length = 0;
->>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 	FILE *fp = NULL;
 	char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
 	Node *ptr = NULL;
 	LinkedList *symbol_history = initList();
 	struct ExternalSymbol *ES = NULL;
-
-<<<<<<< HEAD
 	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link){
 		pstr = (char*)ptr -> data;
 		start_addr_array[cur_obj] = cur_addr;
-=======
-	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
-		pstr = (char*)ptr -> data;
-		start_addr_array[cur_object_file] = cur_addr;
->>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
 			printf("loader: please open .obj file.\n");
 			return -1;
@@ -870,15 +852,9 @@ int linkingLoader(LinkedList* object_files){
 			line_buffer[line_len - 1] = ' ';
 			if (*line_buffer == 'H') {
 				ES = (ExternalSymbol *)malloc(sizeof(ExternalSymbol));
-<<<<<<< HEAD
 				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_obj, &cur_size);
 				start_addr_array[cur_obj] += cur_addr;
 				prog_length[cur_obj] = cur_size;
-=======
-				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_object_file, &cur_size);
-				start_addr_array[cur_object_file] += cur_addr;
-				prog_length[cur_object_file] = cur_size;
->>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 				strcpy(ES->name, prog_name);
 				ES->address = cur_addr;
 				ES->length = cur_size;
@@ -1014,8 +990,6 @@ int linkingLoader(LinkedList* object_files){
 		cur_obj++;
 		fclose(fp);
 	}
-<<<<<<< HEAD
-=======
 
 	cur_addr = progaddr;
 	cur_object_file = 0;
@@ -1097,7 +1071,6 @@ int linkingLoader(LinkedList* object_files){
 		fclose(fp);
 
 	}
->>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 	
 	printExternalSymbolTable(symbol_history);
 	return 0;
