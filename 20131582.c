@@ -821,6 +821,7 @@ int linkingLoader(LinkedList* object_files){
 	int cur_addr = progaddr;
 	int cur_scan_pos = 0;
 	int line_len = 0;
+<<<<<<< HEAD
 	int cur_obj = 0;
 	int prog_length[1 << 8] = {};
 	int start_addr_array[1 << 8] = {};
@@ -829,15 +830,30 @@ int linkingLoader(LinkedList* object_files){
 	int rec_start_addr_array = 0;
 	int rec_length = 0;
 
+=======
+	int cur_object_file = 0;
+	int prog_length[256] = {};
+	int start_addr_array[256] = {};
+	int sym_addr_array[256] = {};
+	int cur_byte = 0;
+	int rec_start_addr_array = 0;
+	int rec_length = 0;
+>>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 	FILE *fp = NULL;
 	char *pstr = NULL, line_buffer[MAXLEN << 1] = "", prog_name[MAXLEN] = "", sym_name[MAXLEN] = "";
 	Node *ptr = NULL;
 	LinkedList *symbol_history = initList();
 	struct ExternalSymbol *ES = NULL;
 
+<<<<<<< HEAD
 	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link){
 		pstr = (char*)ptr -> data;
 		start_addr_array[cur_obj] = cur_addr;
+=======
+	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
+		pstr = (char*)ptr -> data;
+		start_addr_array[cur_object_file] = cur_addr;
+>>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
 			printf("loader: please open .obj file.\n");
 			return -1;
@@ -854,9 +870,15 @@ int linkingLoader(LinkedList* object_files){
 			line_buffer[line_len - 1] = ' ';
 			if (*line_buffer == 'H') {
 				ES = (ExternalSymbol *)malloc(sizeof(ExternalSymbol));
+<<<<<<< HEAD
 				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_obj, &cur_size);
 				start_addr_array[cur_obj] += cur_addr;
 				prog_length[cur_obj] = cur_size;
+=======
+				sscanf(line_buffer, "H%6s%6x%6x", prog_name, start_addr_array + cur_object_file, &cur_size);
+				start_addr_array[cur_object_file] += cur_addr;
+				prog_length[cur_object_file] = cur_size;
+>>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 				strcpy(ES->name, prog_name);
 				ES->address = cur_addr;
 				ES->length = cur_size;
@@ -992,6 +1014,90 @@ int linkingLoader(LinkedList* object_files){
 		cur_obj++;
 		fclose(fp);
 	}
+<<<<<<< HEAD
+=======
+
+	cur_addr = progaddr;
+	cur_object_file = 0;
+
+	for (ptr = object_files -> head; ptr != NULL; ptr = ptr -> link) {
+		pstr = (char*)ptr -> data;
+		if (strncmp(pstr + strlen(pstr) - 3, "obj", 3)){
+			printf("loader: please open .obj file.\n");
+		}
+
+		fp = fopen(pstr, "r");
+		cur_size = -1;
+
+		if (fp == NULL){
+			printf("loader: cannot open %s.\n", pstr);
+		}
+
+		while (fgets(line_buffer, sizeof(line_buffer), fp)) {
+			line_len = strlen(line_buffer);
+			if (*line_buffer == 'H') {
+				sscanf(line_buffer + 1, "%6s", prog_name);
+				sym_addr_array[1] = start_addr_array[cur_object_file];
+				cur_addr = start_addr_array[cur_object_file];
+				cur_size = prog_length[cur_object_file];
+			} else if (*line_buffer == 'D') { // Since this is already handled in pass1, ignore this.
+			} else if (*line_buffer == 'R') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+				for (cur_scan_pos = 1; cur_scan_pos < line_len; cur_scan_pos += 8) {
+					if (sscanf(line_buffer + cur_scan_pos, "%2x%6s", &sym_addr, sym_name) != 2) continue;
+					if (search_element_external_symbol_table((unsigned char*)sym_name) == -1){
+						printf("loader: symbol %s is referenced but not found.\n", sym_name);
+						return -1;
+					}
+					sym_addr_array[sym_addr] = search_element_external_symbol_table((unsigned char*)sym_name);
+					printf("External Symbol Address: %d\n", sym_addr_array[sym_addr]);
+				}
+			} else if (*line_buffer == 'T') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+				sscanf(line_buffer + 1, "%6x%2x", &rec_start_addr_array, &rec_length);
+				for (cur_scan_pos = 9; cur_scan_pos < line_len; cur_scan_pos+=2) {
+					cur_byte = 0;
+					sscanf(line_buffer + cur_scan_pos, "%2x", &cur_byte);
+					addr[cur_addr + rec_start_addr_array + ((cur_scan_pos - 9) / 2)] = (unsigned char)(cur_byte & 0xFF);
+				}
+			} else if (*line_buffer == 'M') {
+				sscanf(line_buffer + 1, "%6x%2x%1s%2x", &rec_start_addr_array, &rec_length, sym_name, &sym_addr);
+				rec_start_addr_array += cur_addr;
+				cur_byte = 0;
+				if (rec_length == 5) {
+					cur_byte = (((unsigned int)(addr[rec_start_addr_array + 0] & 0x0F)) << 16) | (((unsigned int)(addr[rec_start_addr_array + 1] & 0xFF)) << 8) | (((unsigned int)(addr[rec_start_addr_array + 2] & 0xFF)) << 0);
+					cur_byte += (*sym_name == '+' ? sym_addr_array[sym_addr] : -sym_addr_array[sym_addr]);
+					cur_byte &= 0x0FFFFF;
+					addr[rec_start_addr_array + 0] = (unsigned char)((unsigned int)addr[rec_start_addr_array + 0] & 0xF0) | ((unsigned int)(cur_byte >> 16) & 0x0F);
+					addr[rec_start_addr_array + 1] = (cur_byte >> 8) & 0xFF;
+					addr[rec_start_addr_array + 2] = (cur_byte >> 0) & 0xFF;
+				} else { // case rec_length = 6
+					cur_byte = (((unsigned int)(addr[rec_start_addr_array + 0] & 0xFF)) << 16) | (((unsigned int)(addr[rec_start_addr_array + 1] & 0xFF)) << 8) | (((unsigned int)(addr[rec_start_addr_array + 2] & 0xFF)) << 0);
+					cur_byte += (*sym_name == '+' ? sym_addr_array[sym_addr] : -sym_addr_array[sym_addr]);
+					cur_byte &= 0xFFFFFF;
+					addr[rec_start_addr_array + 0] = (cur_byte >> 16) & 0xFF;
+					addr[rec_start_addr_array + 1] = (cur_byte >> 8) & 0xFF;
+					addr[rec_start_addr_array + 2] = (cur_byte >> 0) & 0xFF;
+				}
+			} else if (*line_buffer == 'E') {
+				if (cur_size < 0){
+					printf("loader: the file is not a valid object file.\n");
+				}
+				break;
+			}
+			line_buffer[0] = 0;
+		}
+
+		cur_addr += cur_size;
+		cur_object_file++;
+		fclose(fp);
+
+	}
+>>>>>>> 0c09b253380f375934ac92451024eccae50656fb
 	
 	printExternalSymbolTable(symbol_history);
 	return 0;
@@ -1825,6 +1931,7 @@ int insert_external_symbol_table(struct ExternalSymbol external_symbol){
 		return 1;
 	}
 	h = hash_function(key, HASH_TABLE_MAX);
+	printf("hash: %d", h);
 	temp = malloc(sizeof(struct ExternalSymbolRecord));
 	temp->data = external_symbol;
 	temp->link = external_symbol_table[h];
